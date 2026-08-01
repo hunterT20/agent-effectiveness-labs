@@ -1,0 +1,270 @@
+{
+  "$ref": "#/definitions/fixture",
+  "definitions": {
+    "fixture": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "number",
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1
+        },
+        "outcomeMode": {
+          "type": "string",
+          "enum": [
+            "repository",
+            "artifact",
+            "hybrid"
+          ]
+        },
+        "phases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "promptFile": {
+                "type": "string",
+                "minLength": 1
+              },
+              "session": {
+                "type": "string",
+                "enum": [
+                  "new",
+                  "resume"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "promptFile",
+              "session"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "timeoutMsPerPhase": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "maxChangedFiles": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "timeoutMsPerPhase",
+            "maxChangedFiles"
+          ],
+          "additionalProperties": false
+        },
+        "candidate": {
+          "type": "object",
+          "properties": {
+            "allowedPaths": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "forbiddenPaths": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "requiredArtifacts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "agent-final",
+                      "agent-intermediate"
+                    ]
+                  },
+                  "schema": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "id",
+                  "source",
+                  "schema"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "allowedPaths",
+            "forbiddenPaths"
+          ],
+          "additionalProperties": false
+        },
+        "grading": {
+          "type": "object",
+          "properties": {
+            "deterministic": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "command": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "args": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "required": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "id",
+                  "command",
+                  "args",
+                  "required"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "blindedRubric": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "rubricFile": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "minimumRaters": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "minimumAgreement": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "enabled",
+                "rubricFile",
+                "minimumRaters",
+                "minimumAgreement"
+              ],
+              "additionalProperties": false
+            },
+            "llmJudge": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "disabled",
+                    "exploratory",
+                    "primary"
+                  ]
+                }
+              },
+              "required": [
+                "role"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "deterministic",
+            "blindedRubric",
+            "llmJudge"
+          ],
+          "additionalProperties": false
+        },
+        "reference": {
+          "type": "object",
+          "properties": {
+            "solutionPatch": {
+              "type": "string",
+              "minLength": 1
+            },
+            "artifactDirectory": {
+              "type": "string",
+              "minLength": 1
+            },
+            "mutationCases": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "id",
+        "name",
+        "category",
+        "outcomeMode",
+        "phases",
+        "limits",
+        "candidate",
+        "grading",
+        "reference"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

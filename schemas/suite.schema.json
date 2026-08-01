@@ -1,0 +1,268 @@
+{
+  "$ref": "#/definitions/suite",
+  "definitions": {
+    "suite": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "number",
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "repository": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "local-git"
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "commit": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            }
+          },
+          "required": [
+            "type",
+            "path",
+            "commit"
+          ],
+          "additionalProperties": false
+        },
+        "agent": {
+          "type": "object",
+          "properties": {
+            "adapter": {
+              "type": "string",
+              "minLength": 1
+            },
+            "model": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reasoning": {
+              "type": "string",
+              "minLength": 1
+            },
+            "permissionMode": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "adapter",
+            "model",
+            "reasoning",
+            "permissionMode"
+          ],
+          "additionalProperties": false
+        },
+        "isolation": {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "enum": [
+                "directory-only",
+                "agent-cli-sandbox",
+                "container"
+              ]
+            },
+            "require": {
+              "type": "object",
+              "properties": {
+                "filesystemEnforced": {
+                  "type": "boolean"
+                },
+                "networkPolicyEnforced": {
+                  "type": "boolean"
+                },
+                "processTreeEnforced": {
+                  "type": "boolean"
+                },
+                "hiddenGraderProtected": {
+                  "type": "boolean"
+                },
+                "externalArtifactsProtected": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "network": {
+              "type": "string",
+              "enum": [
+                "inherit",
+                "deny",
+                "allow"
+              ]
+            }
+          },
+          "required": [
+            "provider",
+            "require",
+            "network"
+          ],
+          "additionalProperties": false
+        },
+        "defaults": {
+          "type": "object",
+          "properties": {
+            "repeats": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "concurrency": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "timeoutMs": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "randomSeed": {
+              "type": "string",
+              "minLength": 1
+            },
+            "cachePolicy": {
+              "type": "string",
+              "enum": [
+                "cold-isolated",
+                "warm-shared"
+              ]
+            }
+          },
+          "required": [
+            "repeats",
+            "concurrency",
+            "timeoutMs",
+            "randomSeed",
+            "cachePolicy"
+          ],
+          "additionalProperties": false
+        },
+        "primaryControlArm": {
+          "type": "string",
+          "minLength": 1
+        },
+        "primaryTreatmentArm": {
+          "type": "string",
+          "minLength": 1
+        },
+        "arms": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "fixtures": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "decisionPolicy": {
+          "type": "object",
+          "properties": {
+            "minimumCompletedPairs": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "minimumIndependentFixtures": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "maximumInfrastructureFailureRate": {
+              "type": "number"
+            },
+            "verifiedSuccessDeltaMin": {
+              "type": "number"
+            },
+            "pairedImprovementPValueMax": {
+              "type": "number"
+            },
+            "multipleComparisonMethod": {
+              "type": "string",
+              "enum": [
+                "holm",
+                "bonferroni",
+                "none"
+              ]
+            },
+            "treatmentCriticalSafetyMax": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "treatmentStaleEvidenceAcceptedMax": {
+              "type": "number"
+            },
+            "treatmentRecoveryRateMin": {
+              "type": "number"
+            },
+            "treatmentFalseBlockRateMax": {
+              "type": "number"
+            },
+            "telemetryCoverageMin": {
+              "type": "number"
+            },
+            "treatmentToControlCostPerSuccessMaxRatio": {
+              "type": "number"
+            },
+            "treatmentToControlMedianDurationMaxRatio": {
+              "type": "number"
+            },
+            "treatmentToControlMedianTokensMaxRatio": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "minimumCompletedPairs",
+            "minimumIndependentFixtures",
+            "maximumInfrastructureFailureRate",
+            "verifiedSuccessDeltaMin",
+            "pairedImprovementPValueMax",
+            "multipleComparisonMethod",
+            "treatmentCriticalSafetyMax",
+            "treatmentStaleEvidenceAcceptedMax",
+            "treatmentRecoveryRateMin",
+            "treatmentFalseBlockRateMax",
+            "telemetryCoverageMin",
+            "treatmentToControlCostPerSuccessMaxRatio",
+            "treatmentToControlMedianDurationMaxRatio",
+            "treatmentToControlMedianTokensMaxRatio"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "id",
+        "name",
+        "repository",
+        "agent",
+        "isolation",
+        "defaults",
+        "primaryControlArm",
+        "primaryTreatmentArm",
+        "arms",
+        "fixtures",
+        "decisionPolicy"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
