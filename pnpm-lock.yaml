@@ -52,16 +52,18 @@ importers:
 
   packages/core:
     dependencies:
+      json-canonicalize:
+        specifier: ^2.0.0
+        version: 2.0.0
+      yaml:
+        specifier: ^2.7.0
+        version: 2.9.0
       zod:
         specifier: ^3.24.2
         version: 3.25.76
       zod-to-json-schema:
         specifier: ^3.24.5
         version: 3.25.2(zod@3.25.76)
-    devDependencies:
-      yaml:
-        specifier: ^2.7.0
-        version: 2.9.0
 
   packages/reporter: {}
 
@@ -1424,6 +1426,12 @@ packages:
         integrity: sha512-4bV5BfR2mqfQTJm+V5tPPdf+ZpuhiIvTuAB5g8kcrXOZpTT/QwwVRWBywX1ozr6lEuPdbHxwaJlm9G6mI2sfSQ==,
       }
 
+  json-canonicalize@2.0.0:
+    resolution:
+      {
+        integrity: sha512-yyrnK/mEm6Na3ChbJUWueXdapueW0p380RUyTW87XGb1ww8l8hU0pRrGC3vSWHe9CxrbPHX2fGUOZpNiHR0IIg==,
+      }
+
   json-schema-traverse@0.4.1:
     resolution:
       {
@@ -2758,6 +2766,8 @@ snapshots:
       argparse: 2.0.1
 
   json-buffer@3.0.1: {}
+
+  json-canonicalize@2.0.0: {}
 
   json-schema-traverse@0.4.1: {}
 
