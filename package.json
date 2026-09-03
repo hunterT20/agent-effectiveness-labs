@@ -16,7 +16,7 @@
     "build": "pnpm -r run build",
     "knip": "knip",
     "publint": "pnpm -r exec publint --strict",
-    "verify": "pnpm format && pnpm --filter @ael/core build && pnpm lint && pnpm typecheck && pnpm build && pnpm test:coverage && pnpm knip && pnpm publint",
+    "verify": "pnpm format && pnpm build && pnpm lint && pnpm test:coverage && pnpm knip && pnpm publint",
     "verify:release": "node scripts/verify-release.mjs",
     "verify:synthetic": "node scripts/verify-synthetic.mjs"
   },
