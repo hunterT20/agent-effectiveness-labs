@@ -5,7 +5,7 @@ name: Minimal effectiveness slice
 repository:
   type: local-git
   path: ./seed-repo
-  commit: 5aa9adac116b447f12829967b13000d327651067
+  commit: 8fc35dac5eef18ad0e4d61a8e3ad6c6ba814511c
 
 agent:
   adapter: fake-agent
