@@ -1,6 +1,7 @@
 import { realpathSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
+import { isInside } from '../fs/containment.js';
 import { CONFIG_LOAD_ERROR_CODES, ConfigLoadError } from './errors.js';
 
 function assertPathContained(
@@ -11,9 +12,7 @@ function assertPathContained(
   code: (typeof CONFIG_LOAD_ERROR_CODES)[keyof typeof CONFIG_LOAD_ERROR_CODES],
   message: string,
 ): void {
-  const normalizedRoot = `${containedRoot.replace(/[/\\]+$/, '')}/`;
-  const normalizedResolved = resolve(resolvedPath);
-  if (!normalizedResolved.startsWith(normalizedRoot)) {
+  if (!isInside(resolvedPath, containedRoot)) {
     throw new ConfigLoadError(message, {
       code,
       manifestDir,

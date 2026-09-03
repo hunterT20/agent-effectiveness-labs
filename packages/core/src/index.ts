@@ -3,3 +3,4 @@ export * from './contracts/index.js';
 export * from './config/index.js';
 export * from './config/schemas.js';
 export * from './fingerprint/index.js';
+export * from './fs/containment.js';

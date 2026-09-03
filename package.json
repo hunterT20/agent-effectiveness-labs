@@ -14,7 +14,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "build": "pnpm -r run build",
-    "verify": "pnpm format && pnpm lint && pnpm typecheck && pnpm build && pnpm test"
+    "verify": "pnpm format && pnpm --filter @ael/core build && pnpm lint && pnpm typecheck && pnpm build && pnpm test"
   },
   "devDependencies": {
     "@ael/cli": "workspace:*",
@@ -22,7 +22,7 @@
     "@ael/reporter": "workspace:*",
     "@ael/runtime": "workspace:*",
     "@eslint/js": "^9.21.0",
-    "@types/node": "^22.13.10",
+    "@types/node": "^24.0.0",
     "@vitest/coverage-v8": "^3.0.8",
     "eslint": "^9.21.0",
     "prettier": "^3.5.3",

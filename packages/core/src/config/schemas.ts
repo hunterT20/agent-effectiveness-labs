@@ -7,7 +7,7 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 import { ArmActionSchema } from '../contracts/arm.js';
 import { CandidateSnapshotSchema } from '../contracts/candidate.js';
 import { AEL_ERROR_CODES } from '../contracts/error-codes.js';
-import { ConfigValidationError } from '../contracts/errors.js';
+import { ConfigValidationError, type ConfigValidationIssue } from '../contracts/errors.js';
 import { GradeReportSchema, OutcomeModeSchema, TrialBehaviorSchema } from '../contracts/grade.js';
 import { TrialIdentityInputSchema } from '../contracts/trial.js';
 import { GateResultSchema } from '../contracts/verdict.js';
@@ -398,94 +398,67 @@ function formatFieldPath(path: (string | number)[]): string {
   }, '');
 }
 
-function extractIssueDetails(issue: z.ZodIssue): {
-  fieldPath: string;
-  code: (typeof AEL_ERROR_CODES)[keyof typeof AEL_ERROR_CODES];
-  message: string;
-} {
+function mapIssueToErrorCode(
+  issue: z.ZodIssue,
+): (typeof AEL_ERROR_CODES)[keyof typeof AEL_ERROR_CODES] {
+  switch (issue.code) {
+    case 'unrecognized_keys':
+      return AEL_ERROR_CODES.CONFIG_UNKNOWN_FIELD;
+    case 'invalid_literal':
+      if (issue.path.at(-1) === 'schemaVersion') {
+        return AEL_ERROR_CODES.CONFIG_INVALID_SCHEMA_VERSION;
+      }
+      return AEL_ERROR_CODES.CONFIG_VALIDATION_FAILED;
+    case 'invalid_type':
+      if (issue.message === AEL_ERROR_CODES.CONFIG_NON_FINITE_NUMBER) {
+        return AEL_ERROR_CODES.CONFIG_NON_FINITE_NUMBER;
+      }
+      if ('received' in issue && issue.received === 'nan') {
+        return AEL_ERROR_CODES.CONFIG_NON_FINITE_NUMBER;
+      }
+      return AEL_ERROR_CODES.CONFIG_VALIDATION_FAILED;
+    case 'custom':
+      if (
+        Object.values(AEL_ERROR_CODES).includes(
+          issue.message as (typeof AEL_ERROR_CODES)[keyof typeof AEL_ERROR_CODES],
+        )
+      ) {
+        return issue.message as (typeof AEL_ERROR_CODES)[keyof typeof AEL_ERROR_CODES];
+      }
+      return AEL_ERROR_CODES.CONFIG_VALIDATION_FAILED;
+    case 'too_small':
+    case 'too_big':
+      if (issue.message === AEL_ERROR_CODES.CONFIG_INVALID_THRESHOLD) {
+        return AEL_ERROR_CODES.CONFIG_INVALID_THRESHOLD;
+      }
+      if (issue.message === AEL_ERROR_CODES.CONFIG_NON_FINITE_NUMBER) {
+        return AEL_ERROR_CODES.CONFIG_NON_FINITE_NUMBER;
+      }
+      return AEL_ERROR_CODES.CONFIG_VALIDATION_FAILED;
+    default:
+      return AEL_ERROR_CODES.CONFIG_VALIDATION_FAILED;
+  }
+}
+
+function extractIssueDetails(issue: z.ZodIssue): ConfigValidationIssue {
   if (issue.code === 'unrecognized_keys') {
     const keys = 'keys' in issue ? issue.keys : [];
     const fieldPath = keys[0] ?? '$';
     return {
       fieldPath,
       code: AEL_ERROR_CODES.CONFIG_UNKNOWN_FIELD,
-      message: AEL_ERROR_CODES.CONFIG_UNKNOWN_FIELD,
+      message: issue.message,
     };
   }
 
   const fieldPath = formatFieldPath(issue.path);
-  const message = issue.message;
-
-  if (message === AEL_ERROR_CODES.CONFIG_NON_FINITE_NUMBER) {
-    return {
-      fieldPath,
-      code: AEL_ERROR_CODES.CONFIG_NON_FINITE_NUMBER,
-      message,
-    };
-  }
-
-  if (message === AEL_ERROR_CODES.CONFIG_INVALID_THRESHOLD) {
-    return {
-      fieldPath,
-      code: AEL_ERROR_CODES.CONFIG_INVALID_THRESHOLD,
-      message,
-    };
-  }
-
-  if (
-    message.includes('Invalid literal value') &&
-    (fieldPath.endsWith('schemaVersion') || message.includes('schemaVersion'))
-  ) {
-    return {
-      fieldPath,
-      code: AEL_ERROR_CODES.CONFIG_INVALID_SCHEMA_VERSION,
-      message: AEL_ERROR_CODES.CONFIG_INVALID_SCHEMA_VERSION,
-    };
-  }
-
-  const knownCustomCodes = Object.values(AEL_ERROR_CODES);
-  if (
-    knownCustomCodes.includes(message as (typeof AEL_ERROR_CODES)[keyof typeof AEL_ERROR_CODES])
-  ) {
-    return {
-      fieldPath,
-      code: message as (typeof AEL_ERROR_CODES)[keyof typeof AEL_ERROR_CODES],
-      message,
-    };
-  }
-
-  if (issue.code === 'invalid_type' && issue.received === 'nan') {
-    return {
-      fieldPath,
-      code: AEL_ERROR_CODES.CONFIG_NON_FINITE_NUMBER,
-      message: AEL_ERROR_CODES.CONFIG_NON_FINITE_NUMBER,
-    };
-  }
+  const code = mapIssueToErrorCode(issue);
 
   return {
     fieldPath,
-    code: mapIssueToErrorCode(message),
-    message,
+    code,
+    message: issue.message,
   };
-}
-
-function mapIssueToErrorCode(
-  message: string,
-): (typeof AEL_ERROR_CODES)[keyof typeof AEL_ERROR_CODES] {
-  const knownCodes = Object.values(AEL_ERROR_CODES);
-  if (knownCodes.includes(message as (typeof AEL_ERROR_CODES)[keyof typeof AEL_ERROR_CODES])) {
-    return message as (typeof AEL_ERROR_CODES)[keyof typeof AEL_ERROR_CODES];
-  }
-
-  if (message.includes('Invalid literal value') && message.includes('schemaVersion')) {
-    return AEL_ERROR_CODES.CONFIG_INVALID_SCHEMA_VERSION;
-  }
-
-  if (message.includes('unrecognized key') || message.includes('Unrecognized key')) {
-    return AEL_ERROR_CODES.CONFIG_UNKNOWN_FIELD;
-  }
-
-  return AEL_ERROR_CODES.CONFIG_VALIDATION_FAILED;
 }
 
 function parseDocument<TSchema extends z.ZodTypeAny>(
@@ -498,19 +471,19 @@ function parseDocument<TSchema extends z.ZodTypeAny>(
     return result.data as z.infer<TSchema>;
   }
 
-  const issue = result.error.issues[0];
-  const details = issue
-    ? extractIssueDetails(issue)
-    : {
-        fieldPath: '$',
-        code: AEL_ERROR_CODES.CONFIG_VALIDATION_FAILED,
-        message: 'Configuration validation failed',
-      };
+  const issues = result.error.issues.map((issue) => extractIssueDetails(issue));
+  const firstIssue = issues[0] ?? {
+    fieldPath: '$',
+    code: AEL_ERROR_CODES.CONFIG_VALIDATION_FAILED,
+    message: 'Configuration validation failed',
+  };
+  const summary = issues.map((issue) => `${issue.fieldPath}: ${issue.message}`).join('; ');
 
-  throw new ConfigValidationError(`${filePath}: ${details.fieldPath}: ${details.message}`, {
-    code: details.code,
+  throw new ConfigValidationError(`${filePath}: ${summary}`, {
+    code: firstIssue.code,
     filePath,
-    fieldPath: details.fieldPath,
+    fieldPath: firstIssue.fieldPath,
+    issues,
     cause: result.error,
   });
 }

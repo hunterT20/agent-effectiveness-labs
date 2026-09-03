@@ -10,7 +10,7 @@ export default tseslint.config(
       'docs/**',
       'eslint.config.js',
       'prettier.config.mjs',
-      'vitest.workspace.ts',
+      'vitest.config.ts',
     ],
   },
   {
