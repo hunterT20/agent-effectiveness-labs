@@ -11,9 +11,11 @@ import type {
 
 import { ProcessSupervisor } from '../process/supervisor.js';
 
-export class DirectoryOnlyIsolationProvider implements IsolationProvider {
-  private readonly supervisor = new ProcessSupervisor();
+interface DirectorySession extends IsolationSession {
+  readonly logDir?: string;
+}
 
+export class DirectoryOnlyIsolationProvider implements IsolationProvider {
   doctor(input: IsolationDoctorInput): Promise<IsolationDoctorResult> {
     const observedCapabilities: IsolationCapabilities = {
       level: 'directory-only',
@@ -44,16 +46,25 @@ export class DirectoryOnlyIsolationProvider implements IsolationProvider {
   }
 
   prepare(input: IsolationPrepareInput): Promise<IsolationSession> {
-    return Promise.resolve({ id: `${input.trialId}-directory-only` });
+    const session: DirectorySession = {
+      id: `${input.trialId}-directory-only`,
+      ...(input.logDir !== undefined ? { logDir: input.logDir } : {}),
+    };
+    return Promise.resolve(session);
   }
 
   async run(session: IsolationSession, input: ProcessInvocation): Promise<ProcessResult> {
-    void session;
-    const result = await this.supervisor.run(input);
+    const directorySession = session as DirectorySession;
+    const supervisor = new ProcessSupervisor(
+      directorySession.logDir !== undefined ? { logDir: directorySession.logDir } : {},
+    );
+    const result = await supervisor.run(input);
     return {
       exitCode: result.exitCode,
       signal: result.signal,
       durationMs: result.durationMs,
+      stdoutPath: result.stdoutPath,
+      stderrPath: result.stderrPath,
     };
   }
 

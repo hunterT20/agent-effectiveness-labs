@@ -6,5 +6,6 @@ export * from './errors.js';
 export * from './grade.js';
 export * from './isolation.js';
 export * from './metrics.js';
+export * from './telemetry.js';
 export * from './trial.js';
 export * from './verdict.js';

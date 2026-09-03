@@ -11,3 +11,4 @@ export * from './arms/index.js';
 export * from './adapters/index.js';
 export * from './grading/index.js';
 export * from './runner/index.js';
+export * from './telemetry/index.js';

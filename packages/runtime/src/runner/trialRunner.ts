@@ -9,22 +9,25 @@ import type {
   GradeReport,
   GradeStatus,
   IsolationProvider,
+  PricingSnapshot,
   SuiteDocument,
   TrialPlanEntry,
   TrialStatus,
 } from '@ael/core';
-import { computeAttemptId, computeTrialId, fingerprintRecord } from '@ael/core';
 
 import { materializeArm } from '../arms/builtin.js';
 import { AttemptStore } from '../artifacts/attempts.js';
 import { readAtomicJson, writeAtomicJson } from '../artifacts/atomicWrite.js';
 import { EventLog } from '../artifacts/eventLog.js';
-import { ExperimentLock } from '../artifacts/experimentLock.js';
 import { runHiddenGrader } from '../grading/hiddenGrader.js';
+import {
+  aggregateTelemetryPhases,
+  buildTrialTelemetryRecord,
+  computeTelemetryCost,
+} from '../telemetry/index.js';
 import { captureCandidateSnapshot } from '../workspace/candidateSnapshot.js';
 import { seedWorkspace } from '../workspace/seedWorkspace.js';
 import { isTerminalStatus, transitionTrialStatus } from './trialStateMachine.js';
-import { buildResumeFingerprints, evaluateResume, RUNNER_VERSION } from './resume.js';
 
 const TrialStateSchema = z
   .object({
@@ -35,6 +38,8 @@ const TrialStateSchema = z
     workspaceRoot: z.string().optional(),
     baseFingerprint: z.string().optional(),
     planEntry: z.unknown().optional(),
+    phaseIndex: z.number().int().nonnegative().optional(),
+    sessionChatId: z.string().optional(),
   })
   .passthrough();
 
@@ -52,6 +57,9 @@ export interface TrialRunnerInput {
   readonly isolation: IsolationProvider;
   readonly sourceRepositoryPath: string;
   readonly resumeFromStatus?: TrialStatus;
+  readonly model?: string;
+  readonly pricingSnapshot?: PricingSnapshot | null;
+  readonly cancellationToken?: { readonly cancelled: boolean };
 }
 
 export interface TrialRunnerResult {
@@ -95,6 +103,7 @@ export async function runTrial(input: TrialRunnerInput): Promise<TrialRunnerResu
   let checkpointSeq = 0;
   const attemptDir = join(input.experimentRoot, 'attempts', input.trialId, input.attemptId);
   const trialRoot = join(input.experimentRoot, 'trials', input.trialId, input.attemptId);
+  const logDir = join(attemptDir, 'logs');
 
   const advance = async (
     event: Parameters<typeof transitionTrialStatus>[1],
@@ -111,6 +120,9 @@ export async function runTrial(input: TrialRunnerInput): Promise<TrialRunnerResu
 
   let workspaceRoot = join(trialRoot, 'workspace');
   let baseFingerprint = '';
+  let phaseIndex = 0;
+  let sessionChatId: string | undefined;
+  const phaseTelemetry: import('@ael/core').AgentTelemetry[] = [];
 
   if (status === 'pending') {
     await advance('start_preparing');
@@ -131,7 +143,7 @@ export async function runTrial(input: TrialRunnerInput): Promise<TrialRunnerResu
       suiteRoot: input.suiteRoot,
       overlayManifestPath: join(trialRoot, 'arm-materialization.json'),
     });
-    await advance('prepared', { workspaceRoot, baseFingerprint });
+    await advance('prepared', { workspaceRoot, baseFingerprint, phaseIndex });
   } else {
     try {
       const saved = await readAtomicJson(join(attemptDir, 'state.json'), TrialStateSchema);
@@ -141,36 +153,133 @@ export async function runTrial(input: TrialRunnerInput): Promise<TrialRunnerResu
       if (typeof saved.baseFingerprint === 'string') {
         baseFingerprint = saved.baseFingerprint;
       }
+      if (typeof saved.phaseIndex === 'number') {
+        phaseIndex = saved.phaseIndex;
+      }
+      if (typeof saved.sessionChatId === 'string') {
+        sessionChatId = saved.sessionChatId;
+      }
     } catch {
       // use defaults
     }
   }
 
   if (status === 'running') {
-    const session = await input.isolation.prepare({ workspaceRoot, trialId: input.trialId });
-    const phase = input.fixture.phases[0];
-    if (phase === undefined) {
-      await advance('infrastructure_failed');
-      return { status, gradeStatus: 'invalid_trial', gradeReport: null };
-    }
-    const promptSource = join(input.fixtureRoot, phase.promptFile);
-    const promptTarget = join(workspaceRoot, '.ael', 'prompt.md');
-    await mkdir(join(workspaceRoot, '.ael'), { recursive: true });
-    await copyFile(promptSource, promptTarget);
-    const invocation = await input.adapter.buildInvocation({
+    const session = await input.isolation.prepare({
       workspaceRoot,
-      promptFile: '.ael/prompt.md',
-      phaseId: phase.id,
-      sessionMode: phase.session,
+      trialId: input.trialId,
+      logDir,
     });
-    const processResult = await input.isolation.run(session, invocation);
+    let agentFailed = false;
+    let timedOut = false;
+    let lastStdoutPath = join(logDir, 'stdout.log');
+
+    for (; phaseIndex < input.fixture.phases.length; phaseIndex += 1) {
+      if (input.cancellationToken?.cancelled === true) {
+        await input.isolation.dispose(session);
+        await advance('cancelled', { workspaceRoot, baseFingerprint, phaseIndex });
+        return { status, gradeStatus: 'not_graded', gradeReport: null };
+      }
+
+      const phase = input.fixture.phases[phaseIndex];
+      if (phase === undefined) {
+        break;
+      }
+
+      if (phase.session === 'resume' && input.adapter.capabilities?.resume !== true) {
+        await input.isolation.dispose(session);
+        await advance('infrastructure_failed', { workspaceRoot, baseFingerprint, phaseIndex });
+        return { status, gradeStatus: 'invalid_trial', gradeReport: null };
+      }
+
+      const promptSource = join(input.fixtureRoot, phase.promptFile);
+      const promptTarget = join(workspaceRoot, '.ael', `prompt-${phase.id}.md`);
+      await mkdir(join(workspaceRoot, '.ael'), { recursive: true });
+      await copyFile(promptSource, promptTarget);
+
+      const invocation = await input.adapter.buildInvocation({
+        workspaceRoot,
+        promptFile: `.ael/prompt-${phase.id}.md`,
+        phaseId: phase.id,
+        sessionMode: phase.session,
+        trialId: input.trialId,
+        isolatedHomeRoot: join(workspaceRoot, '.ael', 'isolated-home', input.trialId),
+        timeoutMs: input.fixture.limits.timeoutMsPerPhase,
+        model: input.model ?? input.suite.agent.model,
+        ...(phase.session === 'resume' && sessionChatId !== undefined
+          ? { resumeChatId: sessionChatId }
+          : {}),
+      });
+
+      const processResult = await input.isolation.run(session, invocation);
+      const stdoutPath = processResult.stdoutPath ?? join(logDir, 'stdout.log');
+      const stderrPath = processResult.stderrPath ?? join(logDir, 'stderr.log');
+      lastStdoutPath = stdoutPath;
+      const outcome = await input.adapter.parseOutcome({
+        processResult,
+        stdoutPath,
+        stderrPath,
+      });
+      const telemetry = await input.adapter.collectTelemetry({
+        stdoutPath,
+        stderrPath,
+        processResult,
+      });
+      phaseTelemetry.push(telemetry);
+
+      if (outcome.sessionChatId !== undefined) {
+        sessionChatId = outcome.sessionChatId;
+      }
+
+      await writeAtomicJson(join(attemptDir, `telemetry-phase-${phase.id}.json`), telemetry);
+
+      if (processResult.signal !== null) {
+        timedOut = true;
+        break;
+      }
+      if (processResult.exitCode !== 0) {
+        agentFailed = true;
+        break;
+      }
+    }
+
     await input.isolation.dispose(session);
-    if (processResult.signal !== null) {
-      await advance('timed_out', { workspaceRoot, baseFingerprint });
-    } else if (processResult.exitCode !== 0) {
-      await advance('agent_failed', { workspaceRoot, baseFingerprint });
+
+    const aggregated = aggregateTelemetryPhases(phaseTelemetry);
+    const estimatedCostUsd =
+      input.pricingSnapshot !== undefined && input.pricingSnapshot !== null
+        ? computeTelemetryCost(
+            aggregated,
+            input.model ?? input.suite.agent.model,
+            input.pricingSnapshot,
+          )
+        : {
+            value: null,
+            quality: 'unavailable' as const,
+            source: 'pricing-snapshot',
+            coverageReason: 'no pricing snapshot',
+          };
+    await writeAtomicJson(
+      join(attemptDir, 'telemetry.json'),
+      buildTrialTelemetryRecord({
+        telemetry: aggregated,
+        estimatedCostUsd,
+        phaseCount: phaseTelemetry.length,
+        rawArtifactPath: lastStdoutPath,
+      }),
+    );
+
+    if (timedOut) {
+      await advance('timed_out', { workspaceRoot, baseFingerprint, phaseIndex, sessionChatId });
+    } else if (agentFailed) {
+      await advance('agent_failed', { workspaceRoot, baseFingerprint, phaseIndex, sessionChatId });
     } else {
-      await advance('agent_finished', { workspaceRoot, baseFingerprint });
+      await advance('agent_finished', {
+        workspaceRoot,
+        baseFingerprint,
+        phaseIndex,
+        sessionChatId,
+      });
     }
   }
 
@@ -184,7 +293,12 @@ export async function runTrial(input: TrialRunnerInput): Promise<TrialRunnerResu
       artifactDir: join(attemptDir, 'artifacts'),
     });
     await writeAtomicJson(join(attemptDir, 'candidate-snapshot.json'), snapshot);
-    await advance('collection_complete', { workspaceRoot, baseFingerprint });
+    await advance('collection_complete', {
+      workspaceRoot,
+      baseFingerprint,
+      phaseIndex,
+      sessionChatId,
+    });
     gradeReport = await runHiddenGrader({
       fixture: input.fixture,
       fixtureRoot: input.fixtureRoot,
@@ -195,7 +309,12 @@ export async function runTrial(input: TrialRunnerInput): Promise<TrialRunnerResu
       repositoryCommit: input.suite.repository.commit,
     });
     await writeAtomicJson(join(attemptDir, 'grade.json'), gradeReport);
-    await advance('grading_complete', { workspaceRoot, baseFingerprint });
+    await advance('grading_complete', {
+      workspaceRoot,
+      baseFingerprint,
+      phaseIndex,
+      sessionChatId,
+    });
   } else if (status === 'grading') {
     const snapshotRaw = await readFile(join(attemptDir, 'candidate-snapshot.json'), 'utf8');
     const snapshot = JSON.parse(snapshotRaw) as {
@@ -212,7 +331,12 @@ export async function runTrial(input: TrialRunnerInput): Promise<TrialRunnerResu
       repositoryCommit: input.suite.repository.commit,
     });
     await writeAtomicJson(join(attemptDir, 'grade.json'), gradeReport);
-    await advance('grading_complete', { workspaceRoot, baseFingerprint });
+    await advance('grading_complete', {
+      workspaceRoot,
+      baseFingerprint,
+      phaseIndex,
+      sessionChatId,
+    });
   }
 
   if (!isTerminalStatus(status) && status !== 'completed') {
@@ -224,176 +348,4 @@ export async function runTrial(input: TrialRunnerInput): Promise<TrialRunnerResu
     gradeStatus: gradeReport?.status ?? 'not_graded',
     gradeReport,
   };
-}
-
-export interface ExperimentRunnerInput {
-  readonly experimentRoot: string;
-  readonly suite: SuiteDocument;
-  readonly suiteRoot: string;
-  readonly suiteFingerprint: string;
-  readonly trialPlan: import('@ael/core').TrialPlan;
-  readonly preregistration: import('@ael/core').Preregistration;
-  readonly fixtures: ReadonlyMap<string, { document: FixtureDocument; root: string }>;
-  readonly arms: ReadonlyMap<string, { document: ArmDocument; path: string }>;
-  readonly adapter: AgentAdapter;
-  readonly isolation: IsolationProvider;
-  readonly sourceRepositoryPath: string;
-  readonly agentFingerprint: string;
-  readonly isolationFingerprint: string;
-  readonly pricingFingerprint: string;
-  readonly maxInfraRetries?: number;
-}
-
-export interface ExperimentRunnerResult {
-  readonly completedTrials: number;
-  readonly results: Array<{ trialId: string; status: TrialStatus; gradeStatus: GradeStatus }>;
-  readonly configDrift: boolean;
-}
-
-export async function runExperiment(input: ExperimentRunnerInput): Promise<ExperimentRunnerResult> {
-  const lock = new ExperimentLock(join(input.experimentRoot, 'lock.json'));
-  await lock.acquire();
-
-  const results: Array<{ trialId: string; status: TrialStatus; gradeStatus: GradeStatus }> = [];
-  let completedTrials = 0;
-  let configDrift = false;
-  const maxInfraRetries = input.maxInfraRetries ?? 2;
-
-  const currentFingerprints = buildResumeFingerprints({
-    suiteFingerprint: input.suiteFingerprint,
-    agentFingerprint: input.agentFingerprint,
-    isolationFingerprint: input.isolationFingerprint,
-    pricingFingerprint: input.pricingFingerprint,
-  });
-
-  try {
-    for (const entry of input.trialPlan.trials) {
-      const fixture = input.fixtures.get(entry.fixtureId);
-      const arm = input.arms.get(entry.armId);
-      if (fixture === undefined || arm === undefined) {
-        continue;
-      }
-
-      const trialId = computeTrialId({
-        experimentFingerprint: input.suiteFingerprint,
-        suiteFingerprint: input.suiteFingerprint,
-        fixtureFingerprint: fingerprintRecord('fixture', 1, fixture.document),
-        armFingerprint: fingerprintRecord('arm', 1, arm.document),
-        agentFingerprint: input.agentFingerprint,
-        isolationFingerprint: input.isolationFingerprint,
-        pricingFingerprint: input.pricingFingerprint,
-        repeatIndex: entry.repeatIndex,
-      });
-      const attemptId = computeAttemptId({ trialId, attemptIndex: 0 });
-      const attemptDir = join(input.experimentRoot, 'attempts', trialId, attemptId);
-
-      let resumeFromStatus: TrialStatus | undefined;
-      let attemptIndex = 0;
-      let infraFailureCount = 0;
-      try {
-        const existing = await readAtomicJson(join(attemptDir, 'state.json'), TrialStateSchema);
-        const storedFingerprints = buildResumeFingerprints({
-          suiteFingerprint:
-            typeof existing.suiteFingerprint === 'string'
-              ? existing.suiteFingerprint
-              : input.suiteFingerprint,
-          agentFingerprint:
-            typeof existing.agentFingerprint === 'string'
-              ? existing.agentFingerprint
-              : input.agentFingerprint,
-          isolationFingerprint:
-            typeof existing.isolationFingerprint === 'string'
-              ? existing.isolationFingerprint
-              : input.isolationFingerprint,
-          pricingFingerprint:
-            typeof existing.pricingFingerprint === 'string'
-              ? existing.pricingFingerprint
-              : input.pricingFingerprint,
-        });
-        const decision = evaluateResume({
-          stored: storedFingerprints,
-          current: currentFingerprints,
-          attemptStatus: existing.status,
-          attemptIndex: 0,
-          maxInfraRetries,
-          infraFailureCount,
-        });
-        if (decision.action === 'config_drift') {
-          configDrift = true;
-          results.push({
-            trialId,
-            status: 'infrastructure_failed',
-            gradeStatus: 'invalid_trial',
-          });
-          continue;
-        }
-        if (decision.action === 'skip') {
-          if (existing.status === 'completed') {
-            completedTrials += 1;
-            results.push({
-              trialId,
-              status: 'completed',
-              gradeStatus: 'verified_success',
-            });
-          }
-          continue;
-        }
-        if (decision.action === 'new_attempt') {
-          attemptIndex = decision.attemptIndex;
-        }
-        if (existing.status === 'grading') {
-          resumeFromStatus = 'grading';
-        }
-        if (existing.status === 'infrastructure_failed') {
-          infraFailureCount += 1;
-        }
-      } catch {
-        // fresh trial
-      }
-
-      const activeAttemptId = computeAttemptId({ trialId, attemptIndex });
-      const activeAttemptDir = join(input.experimentRoot, 'attempts', trialId, activeAttemptId);
-
-      const trialResult = await runTrial({
-        experimentRoot: input.experimentRoot,
-        trialId,
-        attemptId: activeAttemptId,
-        suite: input.suite,
-        suiteRoot: input.suiteRoot,
-        fixture: fixture.document,
-        fixtureRoot: fixture.root,
-        arm: arm.document,
-        planEntry: entry,
-        adapter: input.adapter,
-        isolation: input.isolation,
-        sourceRepositoryPath: input.sourceRepositoryPath,
-        ...(resumeFromStatus !== undefined ? { resumeFromStatus } : {}),
-      });
-
-      await writeAtomicJson(join(activeAttemptDir, 'state.json'), {
-        schemaVersion: 1,
-        trialId,
-        attemptId: activeAttemptId,
-        status: trialResult.status,
-        suiteFingerprint: input.suiteFingerprint,
-        agentFingerprint: input.agentFingerprint,
-        isolationFingerprint: input.isolationFingerprint,
-        pricingFingerprint: input.pricingFingerprint,
-        runnerVersion: RUNNER_VERSION,
-      }).catch(() => undefined);
-
-      if (trialResult.status === 'completed') {
-        completedTrials += 1;
-      }
-      results.push({
-        trialId,
-        status: trialResult.status,
-        gradeStatus: trialResult.gradeStatus,
-      });
-    }
-  } finally {
-    await lock.release();
-  }
-
-  return { completedTrials, results, configDrift };
 }

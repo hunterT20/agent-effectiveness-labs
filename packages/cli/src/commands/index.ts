@@ -24,11 +24,19 @@ import {
   serializeReportJson,
 } from '@ael/reporter';
 import {
+  AgentCliSandboxIsolationProvider,
   DirectoryOnlyIsolationProvider,
   createCustomCommandAdapter,
+  createCursorAdapter,
+  estimateAdvisoryExposure,
+  fixtureRequiresResumeCapability,
+  loadPricingSnapshot,
+  pricingFingerprintForSuite,
   registerAdapter,
+  resolveSuitePricingPath,
   runExperiment,
   runFixtureSelfTest,
+  summarizeTelemetryCoverage,
 } from '@ael/runtime';
 
 import {
@@ -46,6 +54,44 @@ export interface CommandContext {
 
 function readYamlFile(path: string): unknown {
   return parseYaml(readFileSync(path, 'utf8'));
+}
+
+function resolveAdapterForSuite(
+  suite: import('@ael/core').SuiteDocument,
+  timeoutMs: number,
+  fakeAgentPath?: string,
+): import('@ael/core').AgentAdapter {
+  if (suite.agent.adapter === 'cursor') {
+    return createCursorAdapter({
+      model: suite.agent.model,
+      timeoutMs,
+      skipSandboxProbe: process.env.AEL_SKIP_SANDBOX_PROBE === '1',
+    });
+  }
+  if (suite.agent.adapter === 'fake-agent') {
+    return createCustomCommandAdapter('fake-agent', {
+      command: process.execPath,
+      extraArgs: [fakeAgentPath ?? ''],
+      timeoutMs,
+    });
+  }
+  return createCustomCommandAdapter(suite.agent.adapter, {
+    command: suite.agent.adapter,
+    timeoutMs,
+  });
+}
+
+function resolveIsolationForSuite(
+  suite: import('@ael/core').SuiteDocument,
+  adapter: import('@ael/core').AgentAdapter,
+): DirectoryOnlyIsolationProvider | AgentCliSandboxIsolationProvider {
+  if (suite.isolation.provider === 'agent-cli-sandbox') {
+    return new AgentCliSandboxIsolationProvider({
+      adapter,
+      model: suite.agent.model,
+    });
+  }
+  return new DirectoryOnlyIsolationProvider();
 }
 
 export function validateSuiteCommand(suitePath: string, context: CommandContext): number {
@@ -116,23 +162,49 @@ export function validateArmCommand(armPath: string, context: CommandContext): nu
 export async function doctorCommand(suitePath: string, context: CommandContext): Promise<number> {
   try {
     const loaded = loadSuiteManifest(suitePath);
-    const isolation = new DirectoryOnlyIsolationProvider();
-    const doctor = await isolation.doctor({
-      requestedCapabilities: {
-        filesystemEnforced: loaded.normalizedValue.isolation.require.filesystemEnforced ?? false,
-        networkPolicyEnforced:
-          loaded.normalizedValue.isolation.require.networkPolicyEnforced ?? false,
-        processTreeEnforced: loaded.normalizedValue.isolation.require.processTreeEnforced ?? false,
-        hiddenGraderProtected:
-          loaded.normalizedValue.isolation.require.hiddenGraderProtected ?? false,
-        externalArtifactsProtected:
-          loaded.normalizedValue.isolation.require.externalArtifactsProtected ?? false,
-      },
+    const suite = loaded.normalizedValue;
+    const adapter = resolveAdapterForSuite(suite, suite.defaults.timeoutMs);
+    registerAdapter(adapter);
+    const isolation = resolveIsolationForSuite(suite, adapter);
+
+    const agentDoctor = await adapter.doctor({
+      workspaceRoot: loaded.manifestDir,
+      model: suite.agent.model,
     });
-    for (const message of doctor.messages) {
+    for (const message of agentDoctor.messages) {
       context.stderr(`${message}\n`);
     }
-    return doctor.supported ? EXIT_OK : EXIT_CAPABILITY;
+
+    const isolationDoctor = await isolation.doctor({
+      requestedCapabilities: {
+        filesystemEnforced: suite.isolation.require.filesystemEnforced ?? false,
+        networkPolicyEnforced: suite.isolation.require.networkPolicyEnforced ?? false,
+        processTreeEnforced: suite.isolation.require.processTreeEnforced ?? false,
+        hiddenGraderProtected: suite.isolation.require.hiddenGraderProtected ?? false,
+        externalArtifactsProtected: suite.isolation.require.externalArtifactsProtected ?? false,
+      },
+    });
+    for (const message of isolationDoctor.messages) {
+      context.stderr(`${message}\n`);
+    }
+
+    context.stdout(
+      `agent=${suite.agent.adapter} model=${suite.agent.model} isolation=${suite.isolation.provider}\n`,
+    );
+    if (agentDoctor.version !== undefined) {
+      context.stdout(`agent-version=${agentDoctor.version}\n`);
+    }
+
+    const ready = agentDoctor.ready && isolationDoctor.supported;
+    if (!ready) {
+      context.stderr('doctor: capability requirements not met\n');
+    }
+    if (suite.agent.adapter === 'cursor') {
+      context.stderr(
+        'Holdpoint B: live cursor-agent runs require explicit human approval after reviewing plan output\n',
+      );
+    }
+    return ready ? EXIT_OK : EXIT_CAPABILITY;
   } catch (error) {
     context.stderr(error instanceof Error ? error.message : 'doctor failed');
     return EXIT_CONFIG;
@@ -148,6 +220,10 @@ export function planCommand(
   try {
     const loaded = loadSuiteManifest(suitePath);
     const suite = loaded.normalizedValue;
+    const adapter = resolveAdapterForSuite(suite, suite.defaults.timeoutMs);
+    registerAdapter(adapter);
+
+    const fixtureDocs: import('@ael/core').FixtureDocument[] = [];
     const fixtureIds: string[] = [];
     let phasesPerFixture = 1;
     for (const fixturePath of suite.fixtures) {
@@ -155,9 +231,18 @@ export function planCommand(
         readYamlFile(join(loaded.manifestDir, fixturePath)),
         fixturePath,
       );
+      fixtureDocs.push(fixture);
       fixtureIds.push(fixture.id);
       phasesPerFixture = Math.max(phasesPerFixture, fixture.phases.length);
     }
+
+    if (fixtureRequiresResumeCapability(fixtureDocs) && adapter.capabilities?.resume !== true) {
+      context.stderr(
+        'plan failed: fixture requires session resume but adapter lacks capabilities.resume\n',
+      );
+      return EXIT_CONFIG;
+    }
+
     const armIds = suite.arms.map((armPath) => {
       const arm = parseArmDocument(readYamlFile(join(loaded.manifestDir, armPath)), armPath);
       return arm.id;
@@ -187,12 +272,102 @@ export function planCommand(
       serializePreregistration(preregistration),
       'utf8',
     );
-    if (json) {
-      context.stdout(
-        `${JSON.stringify({ suiteFingerprint, trialPlan, preregistration }, null, 2)}\n`,
+
+    const pricingPath = resolveSuitePricingPath(loaded.manifestDir);
+    const pricing =
+      pricingPath !== null ? loadPricingSnapshot(loaded.manifestDir, pricingPath) : null;
+    const advisoryCost = estimateAdvisoryExposure({
+      trialPlanAgentInvocations: trialPlan.counts.agentInvocations,
+      model: suite.agent.model,
+      pricing,
+      assumedInputTokensPerInvocation: 50_000,
+      assumedOutputTokensPerInvocation: 10_000,
+    });
+    const fairnessWarnings: string[] = [];
+    if (suite.defaults.concurrency > 1) {
+      fairnessWarnings.push(
+        `concurrency=${String(suite.defaults.concurrency)} may reduce causal fairness for paid runs`,
       );
+    }
+    if (suite.agent.adapter === 'cursor') {
+      fairnessWarnings.push('live run requires explicit human approval (Holdpoint B)');
+    }
+
+    const planReport = {
+      suiteFingerprint,
+      trialPlan,
+      preregistration,
+      agent: {
+        adapter: suite.agent.adapter,
+        model: suite.agent.model,
+        capabilities: adapter.capabilities ?? null,
+      },
+      isolation: suite.isolation,
+      counts: trialPlan.counts,
+      timeoutMs: suite.defaults.timeoutMs,
+      concurrency: suite.defaults.concurrency,
+      pricingFingerprint: pricing?.fingerprint ?? 'unpriced',
+      advisoryCostUsd: advisoryCost,
+      telemetryCoverageTemplate: summarizeTelemetryCoverage({
+        inputTokens: {
+          value: null,
+          quality: 'unavailable',
+          source: null,
+          coverageReason: 'pre-run',
+        },
+        outputTokens: {
+          value: null,
+          quality: 'unavailable',
+          source: null,
+          coverageReason: 'pre-run',
+        },
+        cachedInputTokens: {
+          value: null,
+          quality: 'unavailable',
+          source: null,
+          coverageReason: 'pre-run',
+        },
+        reasoningTokens: {
+          value: null,
+          quality: 'unavailable',
+          source: null,
+          coverageReason: 'pre-run',
+        },
+        subagentTokens: {
+          value: null,
+          quality: 'unavailable',
+          source: null,
+          coverageReason: 'pre-run',
+        },
+        toolCalls: { value: null, quality: 'unavailable', source: null, coverageReason: 'pre-run' },
+      }),
+      fairnessWarnings,
+      holdpointB: {
+        liveRunAuthorized: false,
+        message:
+          'Live cursor-agent pilot requires explicit human approval after reviewing this plan output.',
+      },
+    };
+
+    if (json) {
+      context.stdout(`${JSON.stringify(planReport, null, 2)}\n`);
     } else {
       context.stdout(`planned ${String(trialPlan.counts.trials)} trials\n`);
+      context.stdout(`agent-invocations=${String(trialPlan.counts.agentInvocations)}\n`);
+      context.stdout(`timeout-ms=${String(suite.defaults.timeoutMs)}\n`);
+      context.stdout(`model=${suite.agent.model}\n`);
+      if (advisoryCost.value !== null) {
+        context.stdout(
+          `advisory-max-cost-usd=${advisoryCost.value.toFixed(4)} (${advisoryCost.quality})\n`,
+        );
+      } else {
+        context.stdout(
+          `advisory-max-cost-usd=unavailable (${advisoryCost.coverageReason ?? 'unknown'})\n`,
+        );
+      }
+      for (const warning of fairnessWarnings) {
+        context.stderr(`fairness-warning: ${warning}\n`);
+      }
     }
     return EXIT_OK;
   } catch (error) {
@@ -210,11 +385,11 @@ export async function runCommand(
   try {
     const loaded = loadSuiteManifest(suitePath);
     const suite = loaded.normalizedValue;
-    const adapter = createCustomCommandAdapter('fake-agent', {
-      command: process.execPath,
-      extraArgs: [fakeAgentPath],
-      timeoutMs: suite.defaults.timeoutMs,
-    });
+    if (suite.agent.adapter === 'cursor') {
+      context.stderr('cursor live runs are not authorized without Holdpoint B approval\n');
+      return EXIT_CAPABILITY;
+    }
+    const adapter = resolveAdapterForSuite(suite, suite.defaults.timeoutMs, fakeAgentPath);
     registerAdapter(adapter);
     const planCode = planCommand(suitePath, outputRoot, context);
     if (planCode !== EXIT_OK) {
@@ -254,13 +429,17 @@ export async function runCommand(
       fixtures,
       arms,
       adapter,
-      isolation: new DirectoryOnlyIsolationProvider(),
+      isolation: resolveIsolationForSuite(suite, adapter),
       sourceRepositoryPath: join(loaded.manifestDir, suite.repository.path),
       agentFingerprint: computeFingerprint(suite.agent),
       isolationFingerprint: computeFingerprint(suite.isolation),
-      pricingFingerprint: 'unpriced',
+      pricingFingerprint: pricingFingerprintForSuite(loaded.manifestDir),
+      concurrency: suite.defaults.concurrency,
     });
     context.stdout(`completed ${String(result.completedTrials)} trials\n`);
+    if (result.cancelled) {
+      context.stderr('experiment interrupted; resume to continue\n');
+    }
     return EXIT_OK;
   } catch (error) {
     context.stderr(error instanceof Error ? error.message : 'run failed');

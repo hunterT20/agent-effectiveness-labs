@@ -30,6 +30,7 @@ export interface IsolationDoctorResult {
 export interface IsolationPrepareInput {
   readonly workspaceRoot: string;
   readonly trialId: string;
+  readonly logDir?: string;
 }
 
 export interface IsolationSession {
@@ -40,6 +41,8 @@ export interface ProcessResult {
   readonly exitCode: number | null;
   readonly signal: string | null;
   readonly durationMs: number;
+  readonly stdoutPath?: string;
+  readonly stderrPath?: string;
 }
 
 export interface ProcessInvocation {

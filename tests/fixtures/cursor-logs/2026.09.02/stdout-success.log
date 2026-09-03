@@ -1,0 +1,4 @@
+{"type":"system","subtype":"init","session_id":"chat-redacted-001","chat_id":"chat-redacted-001"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Applied fix."}]},"usage":{"input_tokens":1200,"output_tokens":320,"cache_read_input_tokens":80,"reasoning_tokens":64}}
+{"type":"tool_call","name":"shell","id":"tool-1"}
+{"type":"result","subtype":"success","usage":{"input_tokens":1200,"output_tokens":320,"cache_read_input_tokens":80,"reasoning_tokens":64,"subagent_tokens":0}}

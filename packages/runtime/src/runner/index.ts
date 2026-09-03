@@ -11,11 +11,11 @@ export {
   type ResumeDecision,
   type ResumeFingerprints,
 } from './resume.js';
+export { runTrial, type TrialRunnerInput, type TrialRunnerResult } from './trialRunner.js';
 export {
+  fixtureRequiresResumeCapability,
+  pricingFingerprintForSuite,
   runExperiment,
-  runTrial,
   type ExperimentRunnerInput,
   type ExperimentRunnerResult,
-  type TrialRunnerInput,
-  type TrialRunnerResult,
-} from './trialRunner.js';
+} from './experimentRunner.js';
