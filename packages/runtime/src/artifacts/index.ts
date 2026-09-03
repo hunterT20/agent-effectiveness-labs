@@ -18,3 +18,4 @@ export {
 } from './encryption.js';
 export { readLastValidCheckpoint, type Checkpoint } from './resume.js';
 export { computeHostFingerprint } from './host.js';
+export { createRunKeySourceFromEnv, createRunKeySourceFromHex } from './runKey.js';

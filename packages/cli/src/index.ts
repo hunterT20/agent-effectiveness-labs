@@ -15,6 +15,7 @@ import {
   validateArmCommand,
   validateFixtureCommand,
   validateSuiteCommand,
+  fixtureSelfTestCommand,
 } from './commands/index.js';
 
 export const PACKAGE_NAME = '@ael/cli' as const;
@@ -49,6 +50,12 @@ export function createProgram(): Command {
     .argument('<fixture.yaml>')
     .action((fixturePath: string) => {
       process.exitCode = validateFixtureCommand(fixturePath, context);
+    });
+  fixtureCmd
+    .command('self-test')
+    .argument('<fixture.yaml>')
+    .action(async (fixturePath: string) => {
+      process.exitCode = await fixtureSelfTestCommand(fixturePath, context);
     });
 
   const armCmd = program.command('arm');

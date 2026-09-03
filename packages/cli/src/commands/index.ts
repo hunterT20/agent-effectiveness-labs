@@ -1,4 +1,5 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 
@@ -15,12 +16,19 @@ import {
   serializePreregistration,
   serializeTrialPlan,
 } from '@ael/core';
-import { buildReportSource, renderReportMarkdown, serializeReportJson } from '@ael/reporter';
+import {
+  buildReportSource,
+  renderReportMarkdown,
+  renderReportCsv,
+  renderReportHtml,
+  serializeReportJson,
+} from '@ael/reporter';
 import {
   DirectoryOnlyIsolationProvider,
   createCustomCommandAdapter,
   registerAdapter,
   runExperiment,
+  runFixtureSelfTest,
 } from '@ael/runtime';
 
 import {
@@ -48,6 +56,38 @@ export function validateSuiteCommand(suitePath: string, context: CommandContext)
   } catch (error) {
     context.stderr(error instanceof Error ? error.message : 'suite validation failed');
     return EXIT_CONFIG;
+  }
+}
+
+export async function fixtureSelfTestCommand(
+  fixturePath: string,
+  context: CommandContext,
+): Promise<number> {
+  try {
+    const fixture = parseFixtureDocument(readYamlFile(fixturePath), fixturePath);
+    const fixtureRoot = dirname(fixturePath);
+    const examplesRoot = join(fixtureRoot, '../../..');
+    const suitePath = join(examplesRoot, 'suite.yaml');
+    const loaded = loadSuiteManifest(suitePath);
+    const workDir = mkdtempSync(join(tmpdir(), 'ael-fixture-self-test-'));
+    const result = await runFixtureSelfTest({
+      fixture,
+      fixtureRoot,
+      seedRepositoryPath: join(loaded.manifestDir, loaded.normalizedValue.repository.path),
+      repositoryCommit: loaded.normalizedValue.repository.commit,
+      workDir,
+    });
+    if (!result.valid) {
+      for (const message of result.messages) {
+        context.stderr(`${message}\n`);
+      }
+      return EXIT_CONFIG;
+    }
+    context.stdout('fixture self-test passed\n');
+    return EXIT_OK;
+  } catch (error) {
+    context.stderr(error instanceof Error ? error.message : 'fixture self-test failed');
+    return EXIT_RUNTIME;
   }
 }
 
@@ -317,6 +357,8 @@ export function reportCommand(
     mkdirSync(join(outputRoot, 'report'), { recursive: true });
     writeFileSync(join(outputRoot, 'report', 'report.json'), serializeReportJson(report), 'utf8');
     writeFileSync(join(outputRoot, 'report', 'report.md'), renderReportMarkdown(report), 'utf8');
+    writeFileSync(join(outputRoot, 'report', 'report.csv'), renderReportCsv(report), 'utf8');
+    writeFileSync(join(outputRoot, 'report', 'report.html'), renderReportHtml(report), 'utf8');
     if (failOnVerdict && verdict !== 'PASSED') {
       return EXIT_VERDICT_FAIL;
     }

@@ -24,6 +24,7 @@ import { runHiddenGrader } from '../grading/hiddenGrader.js';
 import { captureCandidateSnapshot } from '../workspace/candidateSnapshot.js';
 import { seedWorkspace } from '../workspace/seedWorkspace.js';
 import { isTerminalStatus, transitionTrialStatus } from './trialStateMachine.js';
+import { buildResumeFingerprints, evaluateResume, RUNNER_VERSION } from './resume.js';
 
 const TrialStateSchema = z
   .object({
@@ -240,11 +241,13 @@ export interface ExperimentRunnerInput {
   readonly agentFingerprint: string;
   readonly isolationFingerprint: string;
   readonly pricingFingerprint: string;
+  readonly maxInfraRetries?: number;
 }
 
 export interface ExperimentRunnerResult {
   readonly completedTrials: number;
   readonly results: Array<{ trialId: string; status: TrialStatus; gradeStatus: GradeStatus }>;
+  readonly configDrift: boolean;
 }
 
 export async function runExperiment(input: ExperimentRunnerInput): Promise<ExperimentRunnerResult> {
@@ -253,6 +256,15 @@ export async function runExperiment(input: ExperimentRunnerInput): Promise<Exper
 
   const results: Array<{ trialId: string; status: TrialStatus; gradeStatus: GradeStatus }> = [];
   let completedTrials = 0;
+  let configDrift = false;
+  const maxInfraRetries = input.maxInfraRetries ?? 2;
+
+  const currentFingerprints = buildResumeFingerprints({
+    suiteFingerprint: input.suiteFingerprint,
+    agentFingerprint: input.agentFingerprint,
+    isolationFingerprint: input.isolationFingerprint,
+    pricingFingerprint: input.pricingFingerprint,
+  });
 
   try {
     for (const entry of input.trialPlan.trials) {
@@ -276,28 +288,76 @@ export async function runExperiment(input: ExperimentRunnerInput): Promise<Exper
       const attemptDir = join(input.experimentRoot, 'attempts', trialId, attemptId);
 
       let resumeFromStatus: TrialStatus | undefined;
+      let attemptIndex = 0;
+      let infraFailureCount = 0;
       try {
         const existing = await readAtomicJson(join(attemptDir, 'state.json'), TrialStateSchema);
-        if (existing.status === 'completed') {
-          completedTrials += 1;
+        const storedFingerprints = buildResumeFingerprints({
+          suiteFingerprint:
+            typeof existing.suiteFingerprint === 'string'
+              ? existing.suiteFingerprint
+              : input.suiteFingerprint,
+          agentFingerprint:
+            typeof existing.agentFingerprint === 'string'
+              ? existing.agentFingerprint
+              : input.agentFingerprint,
+          isolationFingerprint:
+            typeof existing.isolationFingerprint === 'string'
+              ? existing.isolationFingerprint
+              : input.isolationFingerprint,
+          pricingFingerprint:
+            typeof existing.pricingFingerprint === 'string'
+              ? existing.pricingFingerprint
+              : input.pricingFingerprint,
+        });
+        const decision = evaluateResume({
+          stored: storedFingerprints,
+          current: currentFingerprints,
+          attemptStatus: existing.status,
+          attemptIndex: 0,
+          maxInfraRetries,
+          infraFailureCount,
+        });
+        if (decision.action === 'config_drift') {
+          configDrift = true;
           results.push({
             trialId,
-            status: 'completed',
-            gradeStatus: 'verified_success',
+            status: 'infrastructure_failed',
+            gradeStatus: 'invalid_trial',
           });
           continue;
         }
+        if (decision.action === 'skip') {
+          if (existing.status === 'completed') {
+            completedTrials += 1;
+            results.push({
+              trialId,
+              status: 'completed',
+              gradeStatus: 'verified_success',
+            });
+          }
+          continue;
+        }
+        if (decision.action === 'new_attempt') {
+          attemptIndex = decision.attemptIndex;
+        }
         if (existing.status === 'grading') {
           resumeFromStatus = 'grading';
+        }
+        if (existing.status === 'infrastructure_failed') {
+          infraFailureCount += 1;
         }
       } catch {
         // fresh trial
       }
 
+      const activeAttemptId = computeAttemptId({ trialId, attemptIndex });
+      const activeAttemptDir = join(input.experimentRoot, 'attempts', trialId, activeAttemptId);
+
       const trialResult = await runTrial({
         experimentRoot: input.experimentRoot,
         trialId,
-        attemptId,
+        attemptId: activeAttemptId,
         suite: input.suite,
         suiteRoot: input.suiteRoot,
         fixture: fixture.document,
@@ -309,6 +369,18 @@ export async function runExperiment(input: ExperimentRunnerInput): Promise<Exper
         sourceRepositoryPath: input.sourceRepositoryPath,
         ...(resumeFromStatus !== undefined ? { resumeFromStatus } : {}),
       });
+
+      await writeAtomicJson(join(activeAttemptDir, 'state.json'), {
+        schemaVersion: 1,
+        trialId,
+        attemptId: activeAttemptId,
+        status: trialResult.status,
+        suiteFingerprint: input.suiteFingerprint,
+        agentFingerprint: input.agentFingerprint,
+        isolationFingerprint: input.isolationFingerprint,
+        pricingFingerprint: input.pricingFingerprint,
+        runnerVersion: RUNNER_VERSION,
+      }).catch(() => undefined);
 
       if (trialResult.status === 'completed') {
         completedTrials += 1;
@@ -323,5 +395,5 @@ export async function runExperiment(input: ExperimentRunnerInput): Promise<Exper
     await lock.release();
   }
 
-  return { completedTrials, results };
+  return { completedTrials, results, configDrift };
 }

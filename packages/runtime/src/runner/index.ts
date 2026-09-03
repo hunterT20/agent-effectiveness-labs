@@ -4,6 +4,14 @@ export {
   type TrialTransition,
 } from './trialStateMachine.js';
 export {
+  RUNNER_VERSION,
+  RESUME_ERROR_CODES,
+  buildResumeFingerprints,
+  evaluateResume,
+  type ResumeDecision,
+  type ResumeFingerprints,
+} from './resume.js';
+export {
   runExperiment,
   runTrial,
   type ExperimentRunnerInput,

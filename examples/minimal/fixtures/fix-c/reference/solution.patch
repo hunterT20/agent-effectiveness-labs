@@ -1,0 +1,7 @@
+diff --git a/src/answer.txt b/src/answer.txt
+index 6b8710a..7146568 100644
+--- a/src/answer.txt
++++ b/src/answer.txt
+@@ -1 +1 @@
+-pending
++correct-answer

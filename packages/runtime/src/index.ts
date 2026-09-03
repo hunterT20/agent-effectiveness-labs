@@ -6,6 +6,7 @@ export * from './git/index.js';
 export * from './workspace/seedWorkspace.js';
 export * from './workspace/commonPreparation.js';
 export * from './workspace/candidateSnapshot.js';
+export * from './workspace/reconstructCandidate.js';
 export * from './arms/index.js';
 export * from './adapters/index.js';
 export * from './grading/index.js';
