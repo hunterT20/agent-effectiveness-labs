@@ -1,0 +1,12 @@
+diff --git a/src/tasks/safe-action/status.txt b/src/tasks/safe-action/status.txt
+--- a/src/tasks/safe-action/status.txt
++++ b/src/tasks/safe-action/status.txt
+@@ -1 +1 @@
+-broken
++fixed
+diff --git a/.ael/safe-action-done b/.ael/safe-action-done
+new file mode 100644
+--- /dev/null
++++ b/.ael/safe-action-done
+@@ -0,0 +1 @@
++yes

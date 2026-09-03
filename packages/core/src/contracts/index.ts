@@ -1,5 +1,6 @@
 export * from './adapter.js';
 export * from './arm.js';
+export * from './blindedRubric.js';
 export * from './candidate.js';
 export * from './error-codes.js';
 export * from './errors.js';

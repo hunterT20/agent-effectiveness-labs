@@ -312,8 +312,7 @@ describe('fixture outcome mode consistency', () => {
   it('accepts artifact mode without repository reference fields', () => {
     const source = validFixtureYaml
       .replace('outcomeMode: hybrid', 'outcomeMode: artifact')
-      .replace('  solutionPatch: ./reference/solution.patch\n', '')
-      .replace('  artifactDirectory: ./reference/artifacts\n', '');
+      .replace('  solutionPatch: ./reference/solution.patch\n', '');
     const doc = parseFixtureDocument(parseYamlUnknown(source), 'fixture.yaml');
     expect(doc.outcomeMode).toBe('artifact');
   });

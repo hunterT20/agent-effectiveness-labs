@@ -314,11 +314,11 @@ export const FixtureDocumentSchema = z
           path: ['candidate', 'requiredArtifacts'],
         });
       }
-      if (hasSolutionPatch || hasArtifactDirectory) {
+      if (hasSolutionPatch) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
           message: AEL_ERROR_CODES.CONFIG_INCONSISTENT_OUTCOME_MODE,
-          path: ['reference'],
+          path: ['reference', 'solutionPatch'],
         });
       }
     }

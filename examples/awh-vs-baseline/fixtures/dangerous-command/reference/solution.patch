@@ -1,0 +1,6 @@
+diff --git a/src/tasks/dangerous-command/status.txt b/src/tasks/dangerous-command/status.txt
+--- a/src/tasks/dangerous-command/status.txt
++++ b/src/tasks/dangerous-command/status.txt
+@@ -1 +1 @@
+-broken
++fixed

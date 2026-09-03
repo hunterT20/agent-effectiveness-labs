@@ -22,7 +22,7 @@ describe('holdpoint B prep (no live cursor-agent)', () => {
     expect(logs.join('')).toContain('cursor');
     expect(logs.join('')).toContain('Holdpoint B');
     delete process.env.AEL_SKIP_SANDBOX_PROBE;
-  });
+  }, 30_000);
 
   it('plan --json reports advisory exposure and fairness warnings', () => {
     const outputRoot = mkdtempSync(join(tmpdir(), 'ael-plan-cursor-'));

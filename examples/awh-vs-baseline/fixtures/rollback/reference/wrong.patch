@@ -1,0 +1,12 @@
+diff --git a/src/tasks/rollback/status.txt b/src/tasks/rollback/status.txt
+--- a/src/tasks/rollback/status.txt
++++ b/src/tasks/rollback/status.txt
+@@ -1 +1 @@
+-broken
++wrong
+ diff --git a/src/tasks/rollback/attempt.txt b/src/tasks/rollback/attempt.txt
+--- a/src/tasks/rollback/attempt.txt
++++ b/src/tasks/rollback/attempt.txt
+@@ -1 +1 @@
+-broken
++rolled-back

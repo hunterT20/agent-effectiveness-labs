@@ -1,33 +1,19 @@
-# Telemetry provenance
+# Telemetry
 
-Agent Effectiveness Labs records resource usage with explicit provenance. Every metric is a `MetricValue` with:
+Each trial records token, tool-call, and cost metrics with **quality** (`exact`, `estimated`,
+`unavailable`) and `coverageReason`.
 
-- `value`: the numeric value or `null`
-- `quality`: `exact`, `estimated`, or `unavailable`
-- `source`: adapter or extractor identifier
-- `coverageReason`: why a value is missing or estimated
+## Coverage gates
 
-## Cursor stream-json extraction
+`decisionPolicy.telemetryCoverageMin` requires sufficient exact/estimated coverage across trials.
+Missing telemetry excludes metrics from cost-per-success denominators but is reported separately.
 
-The Cursor adapter invokes `cursor-agent` with `--output-format stream-json`. Extractors aggregate:
+## Pricing
 
-- input/output/cached/reasoning/subagent tokens from `usage` objects on assistant/result events
-- tool calls from `tool_call` / `tool_use` events and `tool_calls` arrays
+Optional `pricing.yaml` snapshots are fingerprinted before run. Advisory max cost is shown in
+`ael plan`; it is not a hard spend cap.
 
-Unknown or malformed lines are skipped. If no usable events remain, metrics are `unavailable` (never guessed).
+## Cursor adapter
 
-Failed valid trials still persist `telemetry.json` with observed resource usage from completed phases.
-
-## Pricing snapshots
-
-Suite `pricing.yaml` is sealed into the experiment fingerprint before run. Cost is computed only when:
-
-1. a pricing entry exists for the configured model, and
-2. required token components are `exact`, and
-3. required rate components are present in the snapshot.
-
-Subscription CLIs with no attributable per-token price report cost as `unavailable`.
-
-## Holdpoint B
-
-`ael doctor` and `ael plan --json` report advisory token/cost exposure, model, trial count, timeout, and fairness warnings. Live `cursor-agent` runs require explicit human approval after reviewing plan output.
+Structured log extraction is version-gated; raw evidence is retained when parsers cannot extract
+fields.

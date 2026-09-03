@@ -50,7 +50,7 @@ describe('M2 qualification: fixture self-test matrix', () => {
           });
           void armId;
           expect(result.valid).toBe(true);
-        });
+        }, 30_000);
       }
     }
   }

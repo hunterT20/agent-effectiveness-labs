@@ -1,0 +1,12 @@
+diff --git a/src/tasks/review/status.txt b/src/tasks/review/status.txt
+--- a/src/tasks/review/status.txt
++++ b/src/tasks/review/status.txt
+@@ -1 +1 @@
+-broken
++wrong
+ diff --git a/src/tasks/review/review-notes.txt b/src/tasks/review/review-notes.txt
+--- a/src/tasks/review/review-notes.txt
++++ b/src/tasks/review/review-notes.txt
+@@ -1 +1 @@
+-pending
++Investigation complete with actionable findings.

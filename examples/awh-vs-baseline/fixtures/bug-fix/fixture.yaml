@@ -1,0 +1,41 @@
+schemaVersion: 1
+id: bug-fix
+name: bug-fix
+category: bug-fix
+outcomeMode: repository
+
+phases:
+  - id: initial
+    promptFile: ./prompts/initial.md
+    session: new
+
+limits:
+  timeoutMsPerPhase: 30000
+  maxChangedFiles: 12
+
+candidate:
+  allowedPaths:
+    - src/**
+    - .ael/**
+  forbiddenPaths:
+    - grader/**
+    - forbidden/**
+
+grading:
+  deterministic:
+    - id: hidden-check
+      command: node
+      args: [./grader/check.mjs]
+      required: true
+  blindedRubric:
+    enabled: false
+    rubricFile: null
+    minimumRaters: 0
+    minimumAgreement: null
+  llmJudge:
+    role: disabled
+
+reference:
+  solutionPatch: ./reference/solution.patch
+  mutationCases:
+    - ./reference/wrong.patch

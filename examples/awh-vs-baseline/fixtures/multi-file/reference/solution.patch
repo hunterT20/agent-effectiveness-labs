@@ -1,0 +1,12 @@
+diff --git a/src/tasks/multi-file/a.txt b/src/tasks/multi-file/a.txt
+--- a/src/tasks/multi-file/a.txt
++++ b/src/tasks/multi-file/a.txt
+@@ -1 +1 @@
+-broken
++fixed
+ diff --git a/src/tasks/multi-file/b.txt b/src/tasks/multi-file/b.txt
+--- a/src/tasks/multi-file/b.txt
++++ b/src/tasks/multi-file/b.txt
+@@ -1 +1 @@
+-broken
++fixed

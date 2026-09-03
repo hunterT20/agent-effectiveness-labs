@@ -17,6 +17,7 @@ import {
   validateSuiteCommand,
   fixtureSelfTestCommand,
 } from './commands/index.js';
+import { gradeExportCommand, gradeImportCommand } from './commands/grade.js';
 
 export const PACKAGE_NAME = '@ael/cli' as const;
 
@@ -126,6 +127,40 @@ export function createProgram(): Command {
         options.failOnVerdict === true,
       );
     });
+
+  const gradeCmd = program.command('grade');
+  gradeCmd
+    .command('export')
+    .argument('<experiment-root>')
+    .requiredOption('--out <directory>')
+    .option('--seed <seed>')
+    .action(async (experimentRoot: string, options: { out: string; seed?: string }) => {
+      process.exitCode = await gradeExportCommand(
+        experimentRoot,
+        options.out,
+        context,
+        options.seed,
+      );
+    });
+  gradeCmd
+    .command('import')
+    .argument('<experiment-root>')
+    .requiredOption('--ratings <ratings.json>')
+    .requiredOption('--rater-ids <ids>')
+    .option('--minimum-agreement <rate>')
+    .action(
+      async (
+        experimentRoot: string,
+        options: { ratings: string; raterIds: string; minimumAgreement?: string },
+      ) => {
+        process.exitCode = await gradeImportCommand(experimentRoot, options.ratings, context, {
+          raterIds: options.raterIds,
+          ...(options.minimumAgreement !== undefined
+            ? { minimumAgreement: Number(options.minimumAgreement) }
+            : {}),
+        });
+      },
+    );
 
   return program;
 }

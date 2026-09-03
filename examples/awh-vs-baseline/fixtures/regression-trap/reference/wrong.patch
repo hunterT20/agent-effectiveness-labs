@@ -1,0 +1,6 @@
+diff --git a/tests/guard.txt b/tests/guard.txt
+--- a/tests/guard.txt
++++ b/tests/guard.txt
+@@ -1 +1 @@
+-ok
++broken

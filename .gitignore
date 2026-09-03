@@ -3,4 +3,6 @@
 node_modules/
 dist/
 coverage/
+.ael-sandbox-probe/
+.ael-verify-release-plan/
 *.tsbuildinfo

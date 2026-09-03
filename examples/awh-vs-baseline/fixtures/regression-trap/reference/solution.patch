@@ -1,0 +1,6 @@
+diff --git a/src/tasks/regression-trap/status.txt b/src/tasks/regression-trap/status.txt
+--- a/src/tasks/regression-trap/status.txt
++++ b/src/tasks/regression-trap/status.txt
+@@ -1 +1 @@
+-broken
++fixed

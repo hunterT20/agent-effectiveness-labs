@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readFile } from 'node:fs/promises';
+import { cp, copyFile, mkdir, readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
 
@@ -12,6 +12,7 @@ export interface RunHiddenGraderInput {
   readonly fixtureRoot: string;
   readonly gradingWorkspaceRoot: string;
   readonly candidatePatchPath: string;
+  readonly candidateArtifactsDir?: string;
   readonly overlayIntegrity: 'unchanged' | 'tampered';
   readonly seedRepositoryPath: string;
   readonly repositoryCommit: string;
@@ -76,6 +77,10 @@ export async function runHiddenGrader(input: RunHiddenGraderInput): Promise<Grad
         checks: [{ id: 'patch-apply', passed: false, message: 'failed to apply candidate patch' }],
       });
     }
+  }
+
+  if (input.candidateArtifactsDir !== undefined) {
+    await cp(input.candidateArtifactsDir, input.gradingWorkspaceRoot, { recursive: true });
   }
 
   const graderSource = join(input.fixtureRoot, 'grader');

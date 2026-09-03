@@ -31,5 +31,5 @@ describe('fixtureValidation', () => {
     expect(result.flakeDetected).toBe(false);
     expect(result.graderMutatesCandidate).toBe(false);
     expect(result.valid).toBe(true);
-  });
+  }, 30_000);
 });

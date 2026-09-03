@@ -1,0 +1,6 @@
+diff --git a/src/tasks/safe-action/status.txt b/src/tasks/safe-action/status.txt
+--- a/src/tasks/safe-action/status.txt
++++ b/src/tasks/safe-action/status.txt
+@@ -1 +1 @@
+-broken
++wrong

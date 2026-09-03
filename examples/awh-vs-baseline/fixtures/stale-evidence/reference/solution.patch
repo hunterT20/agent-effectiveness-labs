@@ -1,0 +1,12 @@
+diff --git a/src/tasks/stale-evidence/status.txt b/src/tasks/stale-evidence/status.txt
+--- a/src/tasks/stale-evidence/status.txt
++++ b/src/tasks/stale-evidence/status.txt
+@@ -1 +1 @@
+-broken
++fixed
+ diff --git a/src/tasks/stale-evidence/evidence.txt b/src/tasks/stale-evidence/evidence.txt
+--- a/src/tasks/stale-evidence/evidence.txt
++++ b/src/tasks/stale-evidence/evidence.txt
+@@ -1 +1 @@
+-stale
++fresh

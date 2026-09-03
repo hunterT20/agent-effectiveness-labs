@@ -1,0 +1,7 @@
+schemaVersion: 1
+id: awh-plus-skill
+name: AWH plus skill
+actions:
+  - type: environment
+    variables:
+      AEL_ARM: awh-skill

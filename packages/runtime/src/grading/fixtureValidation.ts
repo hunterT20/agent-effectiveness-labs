@@ -32,6 +32,7 @@ async function gradePatch(
   input: FixtureSelfTestInput,
   patchPath: string | null,
   overlayIntegrity: 'unchanged' | 'tampered' = 'unchanged',
+  candidateArtifactsDir?: string,
 ): Promise<GradeReport> {
   gradeCounter += 1;
   const gradingWorkspace = join(input.workDir, `grading-${String(gradeCounter)}`);
@@ -47,6 +48,7 @@ async function gradePatch(
     fixtureRoot: input.fixtureRoot,
     gradingWorkspaceRoot: gradingWorkspace,
     candidatePatchPath,
+    ...(candidateArtifactsDir !== undefined ? { candidateArtifactsDir } : {}),
     overlayIntegrity,
     seedRepositoryPath: input.seedRepositoryPath,
     repositoryCommit: input.repositoryCommit,
@@ -68,6 +70,7 @@ export async function runFixtureSelfTest(
 
   let referencePasses = false;
   const solutionPatch = input.fixture.reference.solutionPatch;
+  const artifactDirectory = input.fixture.reference.artifactDirectory;
   if (solutionPatch !== undefined) {
     const patchPath = join(input.fixtureRoot, solutionPatch);
     const refGrade = await gradePatch(input, patchPath);
@@ -75,15 +78,28 @@ export async function runFixtureSelfTest(
     if (!referencePasses) {
       messages.push('reference solution fails');
     }
+  } else if (artifactDirectory !== undefined) {
+    const refGrade = await gradePatch(
+      input,
+      null,
+      'unchanged',
+      join(input.fixtureRoot, artifactDirectory),
+    );
+    referencePasses = refGrade.status === 'verified_success';
+    if (!referencePasses) {
+      messages.push('reference artifacts fail');
+    }
   } else {
-    messages.push('no reference solution patch');
+    messages.push('no reference solution patch or artifacts');
   }
 
   let mutationsFail = true;
   const mutations = input.fixture.reference.mutationCases ?? [];
   for (const mutationPath of mutations) {
-    const patchPath = join(input.fixtureRoot, mutationPath);
-    const mutationGrade = await gradePatch(input, patchPath);
+    const fullPath = join(input.fixtureRoot, mutationPath);
+    const mutationGrade = mutationPath.endsWith('.patch')
+      ? await gradePatch(input, fullPath)
+      : await gradePatch(input, null, 'unchanged', fullPath);
     if (mutationGrade.status === 'verified_success') {
       mutationsFail = false;
       messages.push(`mutation unexpectedly passes: ${mutationPath}`);

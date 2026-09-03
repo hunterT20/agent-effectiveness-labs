@@ -1,0 +1,7 @@
+schemaVersion: 1
+id: awh
+name: AWH
+actions:
+  - type: environment
+    variables:
+      AEL_ARM: awh

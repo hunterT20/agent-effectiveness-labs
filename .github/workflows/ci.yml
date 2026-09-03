@@ -33,8 +33,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Audit dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm audit --audit-level high
+
       - name: Verify quality gates
         run: pnpm verify
         env:
           AEL_LIVE_TESTS: 'false'
           CI: 'true'
+
+      - name: Integration tests
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm vitest run --project integration
+
+      - name: Release verification
+        if: matrix.os == 'ubuntu-latest'
+        run: node scripts/verify-release.mjs
+
+      - name: Synthetic performance smoke
+        if: matrix.os == 'ubuntu-latest'
+        run: node scripts/verify-synthetic.mjs

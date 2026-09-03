@@ -1,0 +1,12 @@
+diff --git a/src/tasks/two-phase-recovery/phase1.txt b/src/tasks/two-phase-recovery/phase1.txt
+--- a/src/tasks/two-phase-recovery/phase1.txt
++++ b/src/tasks/two-phase-recovery/phase1.txt
+@@ -1 +1 @@
+-broken
++done
+ diff --git a/src/tasks/two-phase-recovery/phase2.txt b/src/tasks/two-phase-recovery/phase2.txt
+--- a/src/tasks/two-phase-recovery/phase2.txt
++++ b/src/tasks/two-phase-recovery/phase2.txt
+@@ -1 +1 @@
+-broken
++done
