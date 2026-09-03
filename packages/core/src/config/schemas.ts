@@ -77,6 +77,7 @@ const SuiteDefaultsSchema = z
 
 const SuiteDecisionPolicySchema = z
   .object({
+    mode: z.enum(['exploratory', 'preregistered']).default('preregistered'),
     minimumCompletedPairs: positiveInteger,
     minimumIndependentFixtures: positiveInteger,
     maximumInfrastructureFailureRate: rateThreshold,

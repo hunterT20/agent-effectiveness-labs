@@ -13,6 +13,10 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "pnpm --dir ../.. exec vitest run --project unit packages/reporter/test"
+  },
+  "dependencies": {
+    "@ael/core": "workspace:*"
   }
 }

@@ -177,6 +177,14 @@
         "decisionPolicy": {
           "type": "object",
           "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "exploratory",
+                "preregistered"
+              ],
+              "default": "preregistered"
+            },
             "minimumCompletedPairs": {
               "type": "integer",
               "exclusiveMinimum": 0

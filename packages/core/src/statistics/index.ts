@@ -1,0 +1,15 @@
+export {
+  computeExperimentStatistics,
+  computeRate,
+  median,
+  pairedSignTest,
+  percentileNearestRank,
+  sortNumeric,
+  type ComputeStatisticsInput,
+  type ExperimentStatistics,
+  type ExperimentVerdict,
+  type FixtureClusterSummary,
+  type PairedFixtureOutcome,
+  type PairedSignTestResult,
+  type TrialMetricInput,
+} from './summary.js';

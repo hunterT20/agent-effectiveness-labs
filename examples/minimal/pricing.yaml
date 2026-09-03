@@ -1,0 +1,12 @@
+schemaVersion: 1
+id: pricing-minimal
+provider: synthetic
+model: fake
+currency: USD
+effectiveAt: '2026-01-01T00:00:00.000Z'
+rates:
+  inputPerMillion: null
+  outputPerMillion: null
+  cachedInputPerMillion: null
+  reasoningPerMillion: null
+  subagentPerMillion: null

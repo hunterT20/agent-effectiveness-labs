@@ -46,9 +46,21 @@ importers:
 
   packages/cli:
     dependencies:
+      '@ael/core':
+        specifier: workspace:*
+        version: link:../core
+      '@ael/reporter':
+        specifier: workspace:*
+        version: link:../reporter
+      '@ael/runtime':
+        specifier: workspace:*
+        version: link:../runtime
       commander:
         specifier: ^13.1.0
         version: 13.1.0
+      yaml:
+        specifier: ^2.7.0
+        version: 2.9.0
 
   packages/core:
     dependencies:
@@ -65,7 +77,11 @@ importers:
         specifier: ^3.24.5
         version: 3.25.2(zod@3.25.76)
 
-  packages/reporter: {}
+  packages/reporter:
+    dependencies:
+      '@ael/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/runtime:
     dependencies:

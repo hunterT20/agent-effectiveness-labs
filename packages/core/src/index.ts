@@ -4,3 +4,6 @@ export * from './config/index.js';
 export * from './config/schemas.js';
 export * from './fingerprint/index.js';
 export * from './fs/containment.js';
+export * from './scheduler/index.js';
+export * from './statistics/index.js';
+export * from './gates/index.js';
