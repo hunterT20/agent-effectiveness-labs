@@ -1,7 +1,13 @@
-diff --git a/src/answer.txt b/src/answer.txt
-index 6b8710a..8fc35da 100644
---- a/src/answer.txt
-+++ b/src/answer.txt
-@@ -1 +1 @@
--pending
-+wrong-answer
+diff --git a/src/discount.mjs b/src/discount.mjs
+index 48a5db5..9118e95 100644
+--- a/src/discount.mjs
++++ b/src/discount.mjs
+@@ -10,7 +10,7 @@ export function applyDiscount(price, percent) {
+   if (percent < 0 || percent > 100) {
+     throw new RangeError('percent must be between 0 and 100');
+   }
+-  return price - percent;
++  return price * (1 - percent);
+ }
+ 
+ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {

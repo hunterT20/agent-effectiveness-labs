@@ -1,6 +1,6 @@
 schemaVersion: 1
 id: review
-name: review
+name: Review payroll withholding without patching it
 category: review
 outcomeMode: repository
 
@@ -11,15 +11,15 @@ phases:
 
 limits:
   timeoutMsPerPhase: 30000
-  maxChangedFiles: 12
+  maxChangedFiles: 2
 
 candidate:
   allowedPaths:
-    - src/**
-    - .ael/**
+    - reviews/PAYROLL.md
   forbiddenPaths:
+    - src/payroll.mjs
     - grader/**
-    - forbidden/**
+
 
 grading:
   deterministic:

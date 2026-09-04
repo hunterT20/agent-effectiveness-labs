@@ -1,7 +1,23 @@
-diff --git a/src/answer.txt b/src/answer.txt
-index 6b8710a..7146568 100644
---- a/src/answer.txt
-+++ b/src/answer.txt
-@@ -1 +1 @@
--pending
-+correct-answer
+diff --git a/src/validate.mjs b/src/validate.mjs
+index 72ee3d3..d124ee1 100644
+--- a/src/validate.mjs
++++ b/src/validate.mjs
+@@ -11,5 +11,5 @@ export function isValidEmail(value) {
+     return false;
+   }
+   const [local, domain] = parts;
+-  return local.length > 0 && domain.length > 0;
++  return local.length > 0 && domain.length > 0 && domain.includes('.');
+ }
+diff --git a/tests/validate.test.mjs b/tests/validate.test.mjs
+index 48d5c41..105d3c2 100644
+--- a/tests/validate.test.mjs
++++ b/tests/validate.test.mjs
+@@ -11,4 +11,6 @@ test('rejects an address without "@"', () => {
+   assert.equal(isValidEmail('user.example.com'), false);
+ });
+ 
+-// TODO: add a regression test for domains without a dot (e.g. "user@example").
++test('rejects a domain without a dot', () => {
++  assert.equal(isValidEmail('user@example'), false);
++});

@@ -4,4 +4,4 @@ name: Baseline
 actions:
   - type: environment
     variables:
-      AEL_ARM: baseline
+      AEL_ARM_MARKER: baseline

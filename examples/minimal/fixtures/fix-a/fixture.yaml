@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: fix-a
-name: Fix A
-category: basic
+name: Fix percentage discount
+category: bug-fix
 outcomeMode: repository
 
 phases:
@@ -21,7 +21,7 @@ candidate:
 
 grading:
   deterministic:
-    - id: answer-check
+    - id: discount-check
       command: node
       args: [./grader/check.mjs]
       required: true

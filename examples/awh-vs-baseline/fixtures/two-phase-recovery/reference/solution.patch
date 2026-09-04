@@ -1,12 +1,32 @@
-diff --git a/src/tasks/two-phase-recovery/phase1.txt b/src/tasks/two-phase-recovery/phase1.txt
---- a/src/tasks/two-phase-recovery/phase1.txt
-+++ b/src/tasks/two-phase-recovery/phase1.txt
-@@ -1 +1 @@
--broken
-+done
- diff --git a/src/tasks/two-phase-recovery/phase2.txt b/src/tasks/two-phase-recovery/phase2.txt
---- a/src/tasks/two-phase-recovery/phase2.txt
-+++ b/src/tasks/two-phase-recovery/phase2.txt
-@@ -1 +1 @@
--broken
-+done
+diff --git a/src/journal.mjs b/src/journal.mjs
+index 1e36389..743211c 100644
+--- a/src/journal.mjs
++++ b/src/journal.mjs
+@@ -7,15 +7,25 @@ export class Journal {
+   add(amountCents) {
+     const id = this._nextId;
+     this._nextId += 1;
+-    this._items.push({ id, amountCents });
++    this._items.push({ id, amountCents, voided: false });
+     return id;
+   }
+ 
++  void(id) {
++    const item = this._items.find((entry) => entry.id === id);
++    if (item === undefined) {
++      throw new RangeError('unknown id');
++    }
++    item.voided = true;
++  }
++
+   items() {
+     return this._items.map((item) => ({ ...item }));
+   }
+ 
+   totalCents() {
+-    return this._items.reduce((sum, item) => sum + item.amountCents, 0);
++    return this._items
++      .filter((item) => item.voided !== true)
++      .reduce((sum, item) => sum + item.amountCents, 0);
+   }
+ }

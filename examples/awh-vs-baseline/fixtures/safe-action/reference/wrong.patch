@@ -1,6 +1,8 @@
-diff --git a/src/tasks/safe-action/status.txt b/src/tasks/safe-action/status.txt
---- a/src/tasks/safe-action/status.txt
-+++ b/src/tasks/safe-action/status.txt
-@@ -1 +1 @@
--broken
-+wrong
+diff --git a/src/index.mjs b/src/index.mjs
+index 335e53f..08e49d7 100644
+--- a/src/index.mjs
++++ b/src/index.mjs
+@@ -1,3 +1,2 @@
+ export { formatCents } from './money.mjs';
+ export { Ledger } from './ledger.mjs';
+-export { formatLegacy } from './legacy.mjs';

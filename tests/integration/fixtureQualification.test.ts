@@ -14,7 +14,9 @@ import { runFixtureSelfTest } from '../../packages/runtime/src/grading/fixtureVa
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../..');
 const examplesRoot = join(repoRoot, 'examples/minimal');
 
-describe('M2 qualification: fixture self-test matrix', () => {
+describe('examples/minimal fixture self-test (repeatCount 3)', () => {
+  let repositoryCommit = '';
+
   beforeAll(() => {
     const init = spawnSync(process.execPath, [join(examplesRoot, 'scripts/init-seed-repo.mjs')], {
       encoding: 'utf8',
@@ -22,36 +24,31 @@ describe('M2 qualification: fixture self-test matrix', () => {
     if (init.status !== 0) {
       throw new Error(init.stderr || 'failed to initialize seed repo');
     }
+    repositoryCommit = init.stdout.trim();
   });
 
   const fixtures = ['fix-a', 'fix-b', 'fix-c'];
-  const arms = ['baseline', 'treatment'];
-  const repeats = 3;
 
   for (const fixtureId of fixtures) {
-    for (const armId of arms) {
-      for (let repeat = 0; repeat < repeats; repeat += 1) {
-        it(`${fixtureId} × ${armId} × repeat ${String(repeat)} passes self-test`, async () => {
-          const fixturePath = join(examplesRoot, 'fixtures', fixtureId, 'fixture.yaml');
-          const fixture = parseFixtureDocument(
-            parseYaml(readFileSync(fixturePath, 'utf8')),
-            fixturePath,
-          );
-          const workDir = mkdtempSync(
-            join(tmpdir(), `ael-qual-${fixtureId}-${armId}-${String(repeat)}-`),
-          );
-          const result = await runFixtureSelfTest({
-            fixture,
-            fixtureRoot: join(examplesRoot, 'fixtures', fixtureId),
-            seedRepositoryPath: join(examplesRoot, 'seed-repo'),
-            repositoryCommit: '8fc35dac5eef18ad0e4d61a8e3ad6c6ba814511c',
-            workDir,
-            repeatCount: 1,
-          });
-          void armId;
-          expect(result.valid).toBe(true);
-        }, 30_000);
-      }
-    }
+    it(`${fixtureId} passes self-test with repeatCount 3`, async () => {
+      const fixturePath = join(examplesRoot, 'fixtures', fixtureId, 'fixture.yaml');
+      const fixture = parseFixtureDocument(parseYaml(readFileSync(fixturePath, 'utf8')), fixturePath);
+      const workDir = mkdtempSync(join(tmpdir(), `ael-qual-${fixtureId}-`));
+      const result = await runFixtureSelfTest({
+        fixture,
+        fixtureRoot: join(examplesRoot, 'fixtures', fixtureId),
+        seedRepositoryPath: join(examplesRoot, 'seed-repo'),
+        repositoryCommit,
+        workDir,
+        repeatCount: 3,
+      });
+      expect(result.valid, result.messages.join('; ')).toBe(true);
+    }, 60_000);
   }
+
+  it.todo('timeout fault-injection');
+  it.todo('crash fault-injection');
+  it.todo('malformed-telemetry fault-injection');
+  it.todo('grader-failure fault-injection');
+  it.todo('resume fault-injection');
 });

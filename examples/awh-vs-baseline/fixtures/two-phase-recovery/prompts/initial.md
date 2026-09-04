@@ -1,3 +1,4 @@
-# two-phase-recovery
+<!-- ael-fake-mode: success -->
 
-Complete the task.
+Phase 1: add Journal.void(id) so voided amounts drop out of totalCents.
+Unknown ids must throw RangeError.

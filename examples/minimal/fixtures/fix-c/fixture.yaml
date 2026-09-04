@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: fix-c
-name: Fix C
-category: basic
+name: Fix email validation and add the missing regression test
+category: claims-done
 outcomeMode: repository
 
 phases:
@@ -16,12 +16,13 @@ limits:
 candidate:
   allowedPaths:
     - src/**
+    - tests/**
   forbiddenPaths:
     - grader/**
 
 grading:
   deterministic:
-    - id: answer-check
+    - id: validate-check
       command: node
       args: [./grader/check.mjs]
       required: true

@@ -1,6 +1,6 @@
 schemaVersion: 1
 id: regression-trap
-name: regression-trap
+name: Fix fromPercent without breaking toPercent
 category: regression-trap
 outcomeMode: repository
 
@@ -11,15 +11,14 @@ phases:
 
 limits:
   timeoutMsPerPhase: 30000
-  maxChangedFiles: 12
+  maxChangedFiles: 2
 
 candidate:
   allowedPaths:
-    - src/**
-    - .ael/**
+    - src/units.mjs
   forbiddenPaths:
     - grader/**
-    - forbidden/**
+
 
 grading:
   deterministic:

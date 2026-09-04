@@ -1,6 +1,6 @@
 schemaVersion: 1
 id: artifact-only
-name: artifact-only
+name: Emit transaction summary artifact
 category: artifact-only
 outcomeMode: artifact
 
@@ -11,11 +11,13 @@ phases:
 
 limits:
   timeoutMsPerPhase: 30000
-  maxChangedFiles: 12
+  maxChangedFiles: 4
 
 candidate:
-  allowedPaths: []
+  allowedPaths:
+    - artifacts/**
   forbiddenPaths:
+    - src/**
     - grader/**
   requiredArtifacts:
     - id: final-report

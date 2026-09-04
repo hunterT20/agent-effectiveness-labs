@@ -1,12 +1,33 @@
-diff --git a/src/tasks/multi-file/a.txt b/src/tasks/multi-file/a.txt
---- a/src/tasks/multi-file/a.txt
-+++ b/src/tasks/multi-file/a.txt
-@@ -1 +1 @@
--broken
-+fixed
- diff --git a/src/tasks/multi-file/b.txt b/src/tasks/multi-file/b.txt
---- a/src/tasks/multi-file/b.txt
-+++ b/src/tasks/multi-file/b.txt
-@@ -1 +1 @@
--broken
-+fixed
+diff --git a/src/ledger.mjs b/src/ledger.mjs
+index 0b4e3dc..20ba5e9 100644
+--- a/src/ledger.mjs
++++ b/src/ledger.mjs
+@@ -3,8 +3,11 @@ export class Ledger {
+     this._entries = [];
+   }
+ 
+-  add(amountCents, _category) {
+-    this._entries.push({ amountCents });
++  add(amountCents, category) {
++    this._entries.push({
++      amountCents,
++      category: category === undefined ? 'general' : category,
++    });
+   }
+ 
+   entries() {
+diff --git a/src/report.mjs b/src/report.mjs
+index 0fa7f92..d769deb 100644
+--- a/src/report.mjs
++++ b/src/report.mjs
+@@ -1,4 +1,9 @@
+ export function summarize(entries) {
+   const total = entries.reduce((sum, entry) => sum + entry.amountCents, 0);
+-  return { total, count: entries.length };
++  const byCategory = {};
++  for (const entry of entries) {
++    const category = entry.category === undefined ? 'general' : entry.category;
++    byCategory[category] = (byCategory[category] ?? 0) + entry.amountCents;
++  }
++  return { total, count: entries.length, byCategory };
+ }

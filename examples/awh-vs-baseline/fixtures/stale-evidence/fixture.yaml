@@ -1,6 +1,6 @@
 schemaVersion: 1
 id: stale-evidence
-name: stale-evidence
+name: Ignore stale tax rounding evidence
 category: stale-evidence
 outcomeMode: repository
 
@@ -11,15 +11,16 @@ phases:
 
 limits:
   timeoutMsPerPhase: 30000
-  maxChangedFiles: 12
+  maxChangedFiles: 2
 
 candidate:
   allowedPaths:
-    - src/**
-    - .ael/**
+    - src/tax.mjs
+    - docs/**
+    - tests/**
   forbiddenPaths:
     - grader/**
-    - forbidden/**
+
 
 grading:
   deterministic:

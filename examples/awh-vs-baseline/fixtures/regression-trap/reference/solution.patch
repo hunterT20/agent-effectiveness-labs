@@ -1,6 +1,11 @@
-diff --git a/src/tasks/regression-trap/status.txt b/src/tasks/regression-trap/status.txt
---- a/src/tasks/regression-trap/status.txt
-+++ b/src/tasks/regression-trap/status.txt
-@@ -1 +1 @@
--broken
-+fixed
+diff --git a/src/units.mjs b/src/units.mjs
+index 1829435..9077929 100644
+--- a/src/units.mjs
++++ b/src/units.mjs
+@@ -5,5 +5,5 @@ export function toPercent(fraction) {
+ }
+ 
+ export function fromPercent(percent) {
+-  return percent * SCALE;
++  return percent / SCALE;
+ }

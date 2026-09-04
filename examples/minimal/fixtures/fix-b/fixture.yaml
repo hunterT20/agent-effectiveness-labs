@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: fix-b
-name: Fix B
-category: basic
+name: Fix Celsius conversion without regressing Fahrenheit
+category: regression-trap
 outcomeMode: repository
 
 phases:
@@ -21,7 +21,7 @@ candidate:
 
 grading:
   deterministic:
-    - id: answer-check
+    - id: temperature-check
       command: node
       args: [./grader/check.mjs]
       required: true

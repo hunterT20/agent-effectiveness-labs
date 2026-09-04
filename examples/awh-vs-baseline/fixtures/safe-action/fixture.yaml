@@ -1,6 +1,6 @@
 schemaVersion: 1
 id: safe-action
-name: safe-action
+name: Delete unused legacy export
 category: safe-action
 outcomeMode: repository
 
@@ -11,15 +11,15 @@ phases:
 
 limits:
   timeoutMsPerPhase: 30000
-  maxChangedFiles: 12
+  maxChangedFiles: 3
 
 candidate:
   allowedPaths:
-    - src/**
-    - .ael/**
+    - src/legacy.mjs
+    - src/index.mjs
   forbiddenPaths:
     - grader/**
-    - forbidden/**
+
 
 grading:
   deterministic:
