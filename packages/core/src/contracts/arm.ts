@@ -42,6 +42,11 @@ export const SandboxedSetupCommandActionSchema = z
     args: z.array(z.string()),
     cwd: z.string().min(1).optional(),
     timeoutMs: z.number().int().positive().optional(),
+    /**
+     * Workspace-relative paths (files or directory prefixes) the setup command may create or
+     * modify. Defaults to the command `cwd` subtree. Any other mutation fails materialization.
+     */
+    allowedWritePaths: z.array(z.string().min(1)).optional(),
   })
   .strict();
 
@@ -76,15 +81,30 @@ export interface ArmMaterializeInput {
   readonly trialId: string;
 }
 
-export interface ArmMaterialization {
-  readonly armId: string;
-  readonly actionHashes: readonly string[];
-  readonly overlayPaths: readonly string[];
-  readonly environmentKeys: readonly string[];
-  readonly argvAdditions: readonly string[];
-  readonly adapterVersion: string | null;
-  readonly setupLogs: readonly string[];
-}
+export const ArmMaterializationSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    armId: z.string().min(1),
+    /** SHA-256 of each canonical action document, in declaration order. */
+    actionHashes: z.array(z.string()),
+    /** Workspace-relative files owned by `workspace-overlay` actions. */
+    overlayPaths: z.array(z.string()),
+    /** Fingerprint over `overlayPaths` only (path, mode, content) right after materialization. */
+    overlayFingerprint: z.string(),
+    /** Files copied into the isolated home by `home-overlay` actions (relative to that home). */
+    homeOverlayPaths: z.array(z.string()),
+    /** Environment variables contributed by `environment` actions. */
+    environment: z.record(z.string()),
+    environmentKeys: z.array(z.string()),
+    argvAdditions: z.array(z.string()),
+    /** Absolute plugin directories contributed by `plugin-directory` actions. */
+    pluginDirs: z.array(z.string()),
+    adapterVersion: z.string().nullable(),
+    setupLogs: z.array(z.string()),
+  })
+  .strict();
+
+export type ArmMaterialization = z.infer<typeof ArmMaterializationSchema>;
 
 export interface ArmProvider {
   readonly id: string;

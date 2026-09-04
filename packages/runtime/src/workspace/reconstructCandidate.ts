@@ -1,11 +1,9 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { createWriteStream } from 'node:fs';
-import { mkdir, readFile, lstat, readlink, writeFile } from 'node:fs/promises';
+import { chmod, lstat, mkdir, readFile, readlink, rm, symlink, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { pipeline } from 'node:stream/promises';
-import { Readable } from 'node:stream';
-import { createGzip } from 'node:zlib';
+import { gunzipSync, gzipSync } from 'node:zlib';
+import { z } from 'zod';
 
 import { isInside } from '@ael/core';
 
@@ -25,10 +23,70 @@ export interface UntrackedManifest {
   readonly files: readonly UntrackedFileEntry[];
 }
 
+/** Public (plaintext-safe) view of the untracked manifest: no file contents. */
+export const PublicUntrackedManifestSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    files: z.array(
+      z
+        .object({
+          path: z.string().min(1),
+          mode: z.number().int().nonnegative(),
+          sizeBytes: z.number().int().nonnegative(),
+          sha256: z.string().length(64),
+          isSymlink: z.boolean(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+
+export type PublicUntrackedManifest = z.infer<typeof PublicUntrackedManifestSchema>;
+
+const UntrackedArchiveSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    files: z.array(
+      z
+        .object({
+          path: z.string().min(1),
+          mode: z.number().int().nonnegative(),
+          contentBase64: z.string(),
+          isSymlink: z.boolean(),
+          linkTarget: z.string().nullable(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+
 export interface CaptureUntrackedResult {
   readonly manifest: UntrackedManifest;
-  readonly archivePath: string;
+  readonly publicManifest: PublicUntrackedManifest;
+  /** gzip(JSON) archive bytes that round-trip through {@link parseUntrackedArchive}. */
+  readonly archiveBytes: Buffer;
+  /** Plaintext archive path, or `null` when persistence was disabled (protected mode). */
+  readonly archivePath: string | null;
   readonly invalidReason: string | null;
+}
+
+export interface CaptureUntrackedOptions {
+  /** Workspace-relative paths (files or directory prefixes) to leave out of the candidate. */
+  readonly excludePaths?: readonly string[];
+  /** When `false`, the plaintext archive is not written to `artifactDir`. Defaults to `true`. */
+  readonly persistArchive?: boolean;
+}
+
+function toPosix(path: string): string {
+  return path.split('\\').join('/');
+}
+
+function isExcluded(filePath: string, excludePaths: readonly string[]): boolean {
+  const posixPath = toPosix(filePath);
+  return excludePaths.some((excluded) => {
+    const normalized = toPosix(excluded).replace(/\/+$/, '');
+    return posixPath === normalized || posixPath.startsWith(`${normalized}/`);
+  });
 }
 
 async function listUntrackedFiles(workspaceRoot: string): Promise<string[]> {
@@ -44,20 +102,71 @@ async function listUntrackedFiles(workspaceRoot: string): Promise<string[]> {
     .filter((line) => line.length > 0);
 }
 
+export function toPublicUntrackedManifest(manifest: UntrackedManifest): PublicUntrackedManifest {
+  return {
+    schemaVersion: 1,
+    files: manifest.files.map((file) => ({
+      path: file.path,
+      mode: file.mode,
+      sizeBytes: file.content.length,
+      sha256: createHash('sha256').update(file.content).digest('hex'),
+      isSymlink: file.isSymlink,
+    })),
+  };
+}
+
+function serializeArchivePayload(manifest: UntrackedManifest): string {
+  const payload: z.infer<typeof UntrackedArchiveSchema> = {
+    schemaVersion: 1,
+    files: manifest.files.map((file) => ({
+      path: file.path,
+      mode: file.mode,
+      contentBase64: file.content.toString('base64'),
+      isSymlink: file.isSymlink,
+      linkTarget: file.linkTarget,
+    })),
+  };
+  return JSON.stringify(payload);
+}
+
+export function serializeUntrackedArchive(manifest: UntrackedManifest): Buffer {
+  return gzipSync(Buffer.from(serializeArchivePayload(manifest), 'utf8'));
+}
+
+export function parseUntrackedArchive(archiveBytes: Buffer): UntrackedManifest {
+  const raw: unknown = JSON.parse(gunzipSync(archiveBytes).toString('utf8'));
+  const parsed = UntrackedArchiveSchema.parse(raw);
+  return {
+    schemaVersion: 1,
+    files: parsed.files.map((file) => ({
+      path: file.path,
+      mode: file.mode,
+      content: Buffer.from(file.contentBase64, 'base64'),
+      isSymlink: file.isSymlink,
+      linkTarget: file.linkTarget,
+    })),
+  };
+}
+
 export async function captureUntrackedFiles(
   workspaceRoot: string,
   artifactDir: string,
+  options: CaptureUntrackedOptions = {},
 ): Promise<CaptureUntrackedResult> {
+  const excludePaths = options.excludePaths ?? [];
   const paths = await listUntrackedFiles(workspaceRoot);
   const files: UntrackedFileEntry[] = [];
-  let invalidReason: string | null = null;
+  const invalidReasons: string[] = [];
 
   for (const filePath of paths) {
+    if (isExcluded(filePath, excludePaths)) {
+      continue;
+    }
     const fullPath = join(workspaceRoot, filePath);
     const fileStat = await lstat(fullPath);
 
     if (!fileStat.isFile() && !fileStat.isSymbolicLink()) {
-      invalidReason = `special file not allowed: ${filePath}`;
+      invalidReasons.push(`special file not allowed: ${filePath}`);
       continue;
     }
 
@@ -65,11 +174,11 @@ export async function captureUntrackedFiles(
       const linkTarget = await readlink(fullPath);
       const resolved = resolve(dirname(fullPath), linkTarget);
       if (!isInside(resolved, workspaceRoot)) {
-        invalidReason = `symlink escape: ${filePath}`;
+        invalidReasons.push(`symlink escape: ${filePath}`);
         continue;
       }
       files.push({
-        path: filePath,
+        path: toPosix(filePath),
         mode: fileStat.mode,
         content: Buffer.from(linkTarget, 'utf8'),
         isSymlink: true,
@@ -80,7 +189,7 @@ export async function captureUntrackedFiles(
 
     const content = await readFile(fullPath);
     files.push({
-      path: filePath,
+      path: toPosix(filePath),
       mode: fileStat.mode,
       content,
       isSymlink: false,
@@ -89,17 +198,70 @@ export async function captureUntrackedFiles(
   }
 
   const manifest: UntrackedManifest = { schemaVersion: 1, files };
+  const publicManifest = toPublicUntrackedManifest(manifest);
   await mkdir(artifactDir, { recursive: true });
-  const manifestPath = join(artifactDir, 'untracked-manifest.json');
-  await writeFile(manifestPath, `${JSON.stringify(manifest)}\n`, 'utf8');
+  await writeFile(
+    join(artifactDir, 'untracked-manifest.json'),
+    `${JSON.stringify(publicManifest, null, 2)}\n`,
+    'utf8',
+  );
 
-  const archivePath = join(artifactDir, 'untracked.tar.gz');
-  const gzip = createGzip();
-  const output = createWriteStream(archivePath);
-  const tarContent = Buffer.from(JSON.stringify(manifest));
-  await pipeline(Readable.from([tarContent]), gzip, output);
+  const archiveBytes = serializeUntrackedArchive(manifest);
+  let archivePath: string | null = null;
+  if (options.persistArchive !== false) {
+    archivePath = join(artifactDir, 'untracked.tar.gz');
+    await writeFile(archivePath, archiveBytes);
+  }
 
-  return { manifest, archivePath, invalidReason };
+  return {
+    manifest,
+    publicManifest,
+    archiveBytes,
+    archivePath,
+    invalidReason: invalidReasons.length > 0 ? invalidReasons.join('; ') : null,
+  };
+}
+
+export async function applyGitPatch(workspaceRoot: string, patchContent: string): Promise<number> {
+  if (patchContent.trim().length === 0) {
+    return 0;
+  }
+  return new Promise<number>((resolvePromise) => {
+    const child = spawn('git', ['apply', '--binary', '-'], {
+      cwd: workspaceRoot,
+      shell: false,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    child.on('error', () => {
+      resolvePromise(1);
+    });
+    child.on('close', (code) => {
+      resolvePromise(code ?? 1);
+    });
+    child.stdin.on('error', () => undefined);
+    child.stdin.end(patchContent);
+  });
+}
+
+export async function applyUntrackedManifest(
+  targetWorkspaceRoot: string,
+  manifest: UntrackedManifest,
+): Promise<void> {
+  for (const file of manifest.files) {
+    const targetPath = resolve(targetWorkspaceRoot, file.path);
+    if (!isInside(targetPath, targetWorkspaceRoot)) {
+      throw new Error(`untracked path escapes workspace: ${file.path}`);
+    }
+    await mkdir(dirname(targetPath), { recursive: true });
+    if (file.isSymlink) {
+      await symlink(file.linkTarget ?? file.content.toString('utf8'), targetPath);
+      continue;
+    }
+    await writeFile(targetPath, file.content);
+    if (file.mode !== 0) {
+      await chmod(targetPath, file.mode & 0o7777);
+    }
+  }
 }
 
 export interface ReconstructCandidateInput {
@@ -120,6 +282,7 @@ export interface ReconstructCandidateResult {
 export async function reconstructCandidate(
   input: ReconstructCandidateInput,
 ): Promise<ReconstructCandidateResult> {
+  await rm(input.targetWorkspaceRoot, { recursive: true, force: true });
   await mkdir(input.targetWorkspaceRoot, { recursive: true });
   await cloneDetachedRepository({
     sourcePath: input.seedRepositoryPath,
@@ -127,43 +290,17 @@ export async function reconstructCandidate(
     commit: input.repositoryCommit,
   });
 
-  if (input.patchContent.trim().length > 0) {
-    const applyResult = await new Promise<number>((resolve) => {
-      const child = spawn('git', ['apply', '--binary', '-'], {
-        cwd: input.targetWorkspaceRoot,
-        shell: false,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-      child.stdin.write(input.patchContent);
-      child.stdin.end();
-      child.on('close', (code) => {
-        resolve(code ?? 1);
-      });
-    });
-    if (applyResult !== 0) {
-      return {
-        success: false,
-        finalFingerprint: '',
-        invalidReason: 'patch apply failed',
-      };
-    }
+  const applyResult = await applyGitPatch(input.targetWorkspaceRoot, input.patchContent);
+  if (applyResult !== 0) {
+    return {
+      success: false,
+      finalFingerprint: '',
+      invalidReason: 'patch apply failed',
+    };
   }
 
   if (input.untrackedManifest !== null) {
-    for (const file of input.untrackedManifest.files) {
-      const targetPath = join(input.targetWorkspaceRoot, file.path);
-      await mkdir(join(targetPath, '..'), { recursive: true });
-      if (file.isSymlink) {
-        const { symlink } = await import('node:fs/promises');
-        await symlink(file.linkTarget ?? file.content.toString('utf8'), targetPath);
-      } else {
-        await writeFile(targetPath, file.content);
-        if (file.mode !== 0) {
-          const { chmod } = await import('node:fs/promises');
-          await chmod(targetPath, file.mode);
-        }
-      }
-    }
+    await applyUntrackedManifest(input.targetWorkspaceRoot, input.untrackedManifest);
   }
 
   const finalFingerprint = await computeTreeFingerprint(input.targetWorkspaceRoot);
@@ -177,5 +314,5 @@ export async function manifestsEqual(workspaceA: string, workspaceB: string): Pr
 }
 
 export function hashManifest(manifest: UntrackedManifest): string {
-  return createHash('sha256').update(JSON.stringify(manifest)).digest('hex');
+  return createHash('sha256').update(serializeArchivePayload(manifest)).digest('hex');
 }

@@ -1,0 +1,15 @@
+schemaVersion: 1
+id: treatment
+name: Treatment
+actions:
+  - type: environment
+    variables:
+      AEL_ARM_MARKER: treatment
+  - type: workspace-overlay
+    source: ./overlays/marker
+  - type: agent-argument
+    args:
+      - --hint
+      - treatment
+  - type: plugin-directory
+    path: ./plugins/example

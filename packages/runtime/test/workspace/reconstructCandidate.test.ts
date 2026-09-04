@@ -1,10 +1,10 @@
-import { mkdtempSync, readFileSync, writeFileSync, chmodSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { cloneDetachedRepository } from '../../src/git/clone.js';
+import { cloneDetachedRepository, gitDiffBinary } from '../../src/git/clone.js';
 import { computeTreeFingerprint } from '../../src/git/fingerprint.js';
 import {
   captureUntrackedFiles,
@@ -12,30 +12,26 @@ import {
   reconstructCandidate,
 } from '../../src/workspace/reconstructCandidate.js';
 import { captureCandidateSnapshot } from '../../src/workspace/candidateSnapshot.js';
-
-const repoRoot = join(import.meta.dirname, '../../../../examples/minimal');
-const seedRepo = join(repoRoot, 'seed-repo');
-const COMMIT = '8fc35dac5eef18ad0e4d61a8e3ad6c6ba814511c';
+import { createTempSeedRepo } from '../helpers/tempSeedRepo.js';
 
 describe('reconstructCandidate', () => {
   it('reconstructs text changes with byte-level manifest equality', async () => {
+    const seed = await createTempSeedRepo();
     const sourceWorkspace = mkdtempSync(join(tmpdir(), 'ael-src-'));
     await cloneDetachedRepository({
-      sourcePath: seedRepo,
+      sourcePath: seed.repoPath,
       targetPath: sourceWorkspace,
-      commit: COMMIT,
+      commit: seed.commit,
     });
     writeFileSync(join(sourceWorkspace, 'src', 'answer.txt'), 'correct-answer\n', 'utf8');
 
-    const patch = await import('../../src/git/clone.js').then((m) =>
-      m.gitDiffBinary(sourceWorkspace),
-    );
+    const patch = await gitDiffBinary(sourceWorkspace);
     const artifactDir = mkdtempSync(join(tmpdir(), 'ael-art-'));
     const untracked = await captureUntrackedFiles(sourceWorkspace, artifactDir);
     const targetWorkspace = mkdtempSync(join(tmpdir(), 'ael-target-'));
     const reconstructed = await reconstructCandidate({
-      seedRepositoryPath: seedRepo,
-      repositoryCommit: COMMIT,
+      seedRepositoryPath: seed.repoPath,
+      repositoryCommit: seed.commit,
       targetWorkspaceRoot: targetWorkspace,
       patchContent: patch,
       untrackedManifest: untracked.manifest,
@@ -48,11 +44,12 @@ describe('reconstructCandidate', () => {
   });
 
   it('preserves binary files and executable bits', async () => {
+    const seed = await createTempSeedRepo();
     const sourceWorkspace = mkdtempSync(join(tmpdir(), 'ael-bin-'));
     await cloneDetachedRepository({
-      sourcePath: seedRepo,
+      sourcePath: seed.repoPath,
       targetPath: sourceWorkspace,
-      commit: COMMIT,
+      commit: seed.commit,
     });
     const binPath = join(sourceWorkspace, 'blob.bin');
     writeFileSync(binPath, Buffer.from([0, 1, 2, 255]));
@@ -64,8 +61,8 @@ describe('reconstructCandidate', () => {
 
     const targetWorkspace = mkdtempSync(join(tmpdir(), 'ael-bin-target-'));
     const reconstructed = await reconstructCandidate({
-      seedRepositoryPath: seedRepo,
-      repositoryCommit: COMMIT,
+      seedRepositoryPath: seed.repoPath,
+      repositoryCommit: seed.commit,
       targetWorkspaceRoot: targetWorkspace,
       patchContent: '',
       untrackedManifest: untracked.manifest,
@@ -77,11 +74,12 @@ describe('reconstructCandidate', () => {
   });
 
   it('invalidates trial on symlink escape in untracked capture', async () => {
+    const seed = await createTempSeedRepo();
     const sourceWorkspace = mkdtempSync(join(tmpdir(), 'ael-sym-'));
     await cloneDetachedRepository({
-      sourcePath: seedRepo,
+      sourcePath: seed.repoPath,
       targetPath: sourceWorkspace,
-      commit: COMMIT,
+      commit: seed.commit,
     });
     const { symlink } = await import('node:fs/promises');
     await symlink('/tmp/ael-escape-target.txt', join(sourceWorkspace, 'escape-link'));
@@ -94,20 +92,20 @@ describe('reconstructCandidate', () => {
 
 describe('captureCandidateSnapshot integration', () => {
   it('captures untracked archive alongside patch', async () => {
+    const seed = await createTempSeedRepo();
     const workspace = mkdtempSync(join(tmpdir(), 'ael-snap-'));
     await cloneDetachedRepository({
-      sourcePath: seedRepo,
+      sourcePath: seed.repoPath,
       targetPath: workspace,
-      commit: COMMIT,
+      commit: seed.commit,
     });
     writeFileSync(join(workspace, 'notes.txt'), 'extra\n', 'utf8');
     const overlayManifest = join(workspace, 'overlay.json');
     writeFileSync(overlayManifest, '{"overlayPaths":[],"fingerprint":""}\n', 'utf8');
     const artifactDir = mkdtempSync(join(tmpdir(), 'ael-snap-art-'));
-    const baseFingerprint = await computeTreeFingerprint(workspace);
     const snapshot = await captureCandidateSnapshot({
       workspaceRoot: workspace,
-      baseFingerprint,
+      baseFingerprint: await computeTreeFingerprint(workspace),
       overlayManifestPath: overlayManifest,
       artifactDir,
     });

@@ -18,3 +18,14 @@ export {
   type AttemptProvenance,
   type AttemptState,
 } from './artifacts/schemas.js';
+export { FAKE_AGENT_ADAPTER_ID } from './adapters/customCommand.js';
+export {
+  evaluateScopePolicy,
+  ScopeEvaluationSchema,
+  type ScopeEvaluation,
+} from './workspace/scopePolicy.js';
+export {
+  collectTreeManifest,
+  computePathSetFingerprint,
+  diffTreeManifests,
+} from './workspace/treeManifest.js';
