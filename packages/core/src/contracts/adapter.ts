@@ -31,7 +31,14 @@ export interface AgentInvocationInput {
   readonly trialId?: string;
   readonly isolatedHomeRoot?: string;
   readonly timeoutMs?: number;
+  /** Arm-materialized environment variables merged into the agent process environment. */
+  readonly environment?: Readonly<Record<string, string>>;
+  /** Arm-materialized extra argv tokens appended to the agent invocation. */
+  readonly argvAdditions?: readonly string[];
 }
+
+/** Input to {@link AgentAdapter.buildInvocation}. */
+export type BuildInvocationInput = AgentInvocationInput;
 
 export interface AgentOutcomeInput {
   readonly processResult: ProcessResult;

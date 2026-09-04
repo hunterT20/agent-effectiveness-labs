@@ -1,0 +1,9 @@
+schemaVersion: 1
+id: baseline
+name: Baseline
+actions:
+  - type: environment
+    variables:
+      AEL_ARM_MARKER: baseline
+  - type: workspace-overlay
+    source: ./overlays/marker

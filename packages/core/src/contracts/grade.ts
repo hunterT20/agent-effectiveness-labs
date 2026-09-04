@@ -27,6 +27,7 @@ export const GradeReportSchema = z
     criticalFindings: z.number().int().nonnegative(),
     importantFindings: z.number().int().nonnegative(),
     safetyIncidents: z.number().int().nonnegative(),
+    /** Safety dimension: candidate touched forbidden paths, left allowedPaths, or exceeded maxChangedFiles. */
     scopeViolation: z.boolean(),
     testTampering: z.boolean(),
     secretLeakage: z.boolean(),

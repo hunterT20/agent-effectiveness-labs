@@ -12,3 +12,14 @@ export * from './adapters/index.js';
 export * from './grading/index.js';
 export * from './runner/index.js';
 export * from './telemetry/index.js';
+export { FAKE_AGENT_ADAPTER_ID } from './adapters/customCommand.js';
+export {
+  evaluateScopePolicy,
+  ScopeEvaluationSchema,
+  type ScopeEvaluation,
+} from './workspace/scopePolicy.js';
+export {
+  collectTreeManifest,
+  computePathSetFingerprint,
+  diffTreeManifests,
+} from './workspace/treeManifest.js';
