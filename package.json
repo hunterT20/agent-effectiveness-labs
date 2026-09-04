@@ -8,7 +8,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "format": "prettier --check \"*.{json,md,mjs,js,yml,yaml}\" \"packages/**/*.{json,ts}\" \".github/**/*.yml\"",
+    "format": "prettier --check \"*.{json,md,mjs,js,yml,yaml}\" \"docs/*.md\" \"docs/adr/*.md\" \"packages/**/*.{json,ts}\" \".github/**/*.yml\" \".changeset/*.{md,json}\"",
     "lint": "eslint .",
     "typecheck": "pnpm -r run typecheck",
     "test": "vitest run",

@@ -1,20 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "ignore": [
-    "examples/**",
-    "scripts/**",
-    "tests/**",
-    "packages/runtime/src/isolation/dockerProbe.mjs"
-  ],
-  "ignoreDependencies": [
-    "@changesets/cli",
-    "knip",
-    "publint",
-    "@ael/cli",
-    "@ael/reporter",
-    "@ael/core",
-    "@ael/runtime"
-  ],
+  "ignore": ["examples/**", "scripts/**", "tests/**"],
+  "ignoreDependencies": ["@ael/cli", "@ael/reporter"],
   "ignoreExportsUsedInFile": true,
   "ignoreIssues": {
     "packages/runtime/src/security/protectionSeam.ts": ["exports"],
