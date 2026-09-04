@@ -14,12 +14,12 @@ trustworthy foundations before higher-risk runtime features.
 
 Deliver the product as **vertical slices** grouped into milestones:
 
-| Milestone | Scope |
-| --------- | ----- |
-| **M0** | Platform hardening: atomic artifacts, path containment, config validation, encryption, CI, governance |
-| **M1** | Trial runtime boundary: workspace isolation, agent adapters, grader invocation |
-| **M2** | Statistics and verdict gates from normalized evidence |
-| **M3** | Reporter views and CLI orchestration for preregistered experiments |
+| Milestone | Scope                                                                                                 |
+| --------- | ----------------------------------------------------------------------------------------------------- |
+| **M0**    | Platform hardening: atomic artifacts, path containment, config validation, encryption, CI, governance |
+| **M1**    | Trial runtime boundary: workspace isolation, agent adapters, grader invocation                        |
+| **M2**    | Statistics and verdict gates from normalized evidence                                                 |
+| **M3**    | Reporter views and CLI orchestration for preregistered experiments                                    |
 
 Each milestone must pass `pnpm verify` and land through reviewed pull requests. Later milestones
 must not rewrite M0 contracts without a new ADR.

@@ -1,7 +1,31 @@
 {
   "name": "@ael/core",
-  "version": "1.0.0",
+  "version": "0.0.0",
+  "description": "Agent Effectiveness Labs core: suite/fixture/arm contracts, Zod schemas, fingerprints, deterministic scheduler, statistics and decision gates",
+  "keywords": [
+    "ael",
+    "agent-effectiveness-labs",
+    "coding-agent",
+    "benchmark",
+    "evaluation",
+    "experiment",
+    "statistics",
+    "zod"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/hunterT20/agent-effectiveness-labs#readme",
+  "bugs": {
+    "url": "https://github.com/hunterT20/agent-effectiveness-labs/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hunterT20/agent-effectiveness-labs.git",
+    "directory": "packages/core"
+  },
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -9,15 +33,20 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "pnpm --dir ../.. exec vitest run --project unit packages/core/test"
   },
   "dependencies": {
-    "json-canonicalize": "^2.0.0",
+    "json-canonicalize": "2.0.0",
     "yaml": "^2.7.0",
     "zod": "^3.24.2",
     "zod-to-json-schema": "^3.24.5"

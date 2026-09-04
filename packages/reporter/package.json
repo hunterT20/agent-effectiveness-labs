@@ -1,7 +1,31 @@
 {
   "name": "@ael/reporter",
-  "version": "1.0.0",
+  "version": "0.0.0",
+  "description": "Agent Effectiveness Labs reporter: deterministic JSON, Markdown, CSV (formula-injection safe) and self-contained HTML views of experiment evidence",
+  "keywords": [
+    "ael",
+    "agent-effectiveness-labs",
+    "coding-agent",
+    "benchmark",
+    "report",
+    "markdown",
+    "csv",
+    "html"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/hunterT20/agent-effectiveness-labs#readme",
+  "bugs": {
+    "url": "https://github.com/hunterT20/agent-effectiveness-labs/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hunterT20/agent-effectiveness-labs.git",
+    "directory": "packages/reporter"
+  },
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -9,8 +33,13 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

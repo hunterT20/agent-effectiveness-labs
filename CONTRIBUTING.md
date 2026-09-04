@@ -48,7 +48,8 @@ pnpm test                              # all projects with matching tests
 pnpm --dir packages/core test          # unit tests for core only
 ```
 
-Live tests require `AEL_LIVE_TESTS=true` and human approval.
+Live Cursor tests require `AEL_LIVE_CURSOR=1` and human approval. CI never sets it.
+`AEL_LIVE_TESTS` is not read by any code.
 
 ## Documentation
 
