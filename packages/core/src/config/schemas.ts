@@ -92,6 +92,17 @@ const SuiteDecisionPolicySchema = z
     treatmentToControlCostPerSuccessMaxRatio: ratioThreshold,
     treatmentToControlMedianDurationMaxRatio: ratioThreshold,
     treatmentToControlMedianTokensMaxRatio: ratioThreshold,
+    /**
+     * Minimum discordant fixture pairs before the sign test is considered adequately powered.
+     * Optional (no default in the schema) so existing suites keep their fingerprint; consumers
+     * fall back to `DEFAULT_MINIMUM_DISCORDANT_PAIRS` (5, the smallest count at which a one-sided
+     * sign test can reach p <= 0.05).
+     */
+    minimumDiscordantPairs: z.number().int().nonnegative().optional(),
+    /** Smallest verified-success delta the experiment is meant to detect (power readiness); consumers fall back to `DEFAULT_MINIMUM_DETECTABLE_DELTA` (0.2). */
+    minimumDetectableDelta: rateThreshold.optional(),
+    /** When true, a missing blinded-rubric agreement file forces INSUFFICIENT_DATA. */
+    requireBlindedRubric: z.boolean().optional(),
   })
   .strict();
 

@@ -1,4 +1,4 @@
-export const HOLM_CORRECTION_VERSION = 'holm-v1' as const;
+export const HOLM_CORRECTION_VERSION = 'holm-v2' as const;
 
 export interface HolmComparisonInput {
   readonly id: string;
@@ -25,7 +25,15 @@ export interface HolmCorrectionResult {
   readonly comparisons: readonly HolmComparisonResult[];
 }
 
-/** Deterministic Holm step-down correction for secondary arm comparisons. */
+/**
+ * Deterministic Holm step-down correction for secondary arm comparisons.
+ *
+ * With p-values sorted ascending p_(1) <= ... <= p_(m) (1-based rank i), the adjusted p-value is
+ * `max_{j <= i} min(1, (m - j + 1) * p_(j))`: the raw step-down factor `(m - i + 1)` followed by a
+ * cumulative maximum so adjusted values are monotone non-decreasing in rank. A comparison is
+ * significant when its adjusted p-value is `<= alpha`, which is equivalent to the classic
+ * step-down stopping rule.
+ */
 export function applyHolmCorrection(input: HolmCorrectionInput): HolmCorrectionResult {
   const alpha = input.alpha ?? 0.05;
   const ordered = [...input.comparisons].sort((left, right) => {
@@ -37,7 +45,7 @@ export function applyHolmCorrection(input: HolmCorrectionInput): HolmCorrectionR
 
   const m = ordered.length;
   const comparisons: HolmComparisonResult[] = [];
-  let stop = false;
+  let runningMax = 0;
 
   for (let index = 0; index < ordered.length; index += 1) {
     const entry = ordered[index];
@@ -45,17 +53,14 @@ export function applyHolmCorrection(input: HolmCorrectionInput): HolmCorrectionR
       continue;
     }
     const rank = index + 1;
-    const threshold = alpha / (m - index);
-    const adjustedPValue = Math.min(1, entry.pValue * (m - index + 1));
-    const significant = !stop && entry.pValue <= threshold;
-    if (!significant) {
-      stop = true;
-    }
+    const stepDown = Math.min(1, entry.pValue * (m - rank + 1));
+    runningMax = Math.max(runningMax, stepDown);
+    const adjustedPValue = runningMax;
     comparisons.push({
       id: entry.id,
       rawPValue: entry.pValue,
       adjustedPValue,
-      significant,
+      significant: adjustedPValue <= alpha,
       rank,
     });
   }

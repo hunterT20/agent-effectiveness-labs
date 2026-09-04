@@ -1,8 +1,10 @@
 import { createMulberry32, derivePrngSeed } from '../scheduler/prng.js';
-import { median, sortNumeric } from './summary.js';
+import { sortNumeric } from './summary.js';
 
-export const CLUSTER_BOOTSTRAP_VERSION = 'cluster-bootstrap-v1' as const;
+/** v2: point estimate is the mean of the fixture-level values (same statistic as the bootstrap distribution). */
+export const CLUSTER_BOOTSTRAP_VERSION = 'cluster-bootstrap-v2' as const;
 export const CLUSTER_BOOTSTRAP_METHOD = 'percentile-cluster-resample' as const;
+export const CLUSTER_BOOTSTRAP_STATISTIC = 'mean' as const;
 
 export interface FixtureClusterValue {
   readonly fixtureId: string;
@@ -19,6 +21,7 @@ export interface ClusterBootstrapInput {
 export interface ClusterBootstrapResult {
   readonly method: typeof CLUSTER_BOOTSTRAP_METHOD;
   readonly version: typeof CLUSTER_BOOTSTRAP_VERSION;
+  readonly statistic: typeof CLUSTER_BOOTSTRAP_STATISTIC;
   readonly iterations: number;
   readonly confidenceLevel: number;
   readonly pointEstimate: number | null;
@@ -36,7 +39,15 @@ function percentile(sortedValues: readonly number[], percentileValue: number): n
   return sortedValues[index] ?? null;
 }
 
-/** Cluster bootstrap CI by resampling whole fixtures with a deterministic seed. */
+function mean(values: readonly number[]): number {
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+/**
+ * Cluster bootstrap CI by resampling whole fixtures (clusters) with a deterministic seed.
+ * The point estimate and the bootstrap distribution use the same statistic: the mean of the
+ * fixture-level values (e.g. mean of per-fixture paired success deltas).
+ */
 export function clusterBootstrapCi(input: ClusterBootstrapInput): ClusterBootstrapResult {
   const iterations = input.iterations ?? 2000;
   const confidenceLevel = input.confidenceLevel ?? 0.95;
@@ -46,6 +57,7 @@ export function clusterBootstrapCi(input: ClusterBootstrapInput): ClusterBootstr
     return {
       method: CLUSTER_BOOTSTRAP_METHOD,
       version: CLUSTER_BOOTSTRAP_VERSION,
+      statistic: CLUSTER_BOOTSTRAP_STATISTIC,
       iterations,
       confidenceLevel,
       pointEstimate: null,
@@ -55,7 +67,7 @@ export function clusterBootstrapCi(input: ClusterBootstrapInput): ClusterBootstr
     };
   }
 
-  const pointEstimate = median(fixtureValues.map((entry) => entry.value));
+  const pointEstimate = mean(fixtureValues.map((entry) => entry.value));
   const rng = createMulberry32(derivePrngSeed(input.randomSeed));
   const bootstrapMeans: number[] = [];
 
@@ -68,8 +80,7 @@ export function clusterBootstrapCi(input: ClusterBootstrapInput): ClusterBootstr
         resampled.push(selected.value);
       }
     }
-    const mean = resampled.reduce((sum, value) => sum + value, 0) / resampled.length;
-    bootstrapMeans.push(mean);
+    bootstrapMeans.push(mean(resampled));
   }
 
   const alpha = (1 - confidenceLevel) / 2;
@@ -78,6 +89,7 @@ export function clusterBootstrapCi(input: ClusterBootstrapInput): ClusterBootstr
   return {
     method: CLUSTER_BOOTSTRAP_METHOD,
     version: CLUSTER_BOOTSTRAP_VERSION,
+    statistic: CLUSTER_BOOTSTRAP_STATISTIC,
     iterations,
     confidenceLevel,
     pointEstimate,

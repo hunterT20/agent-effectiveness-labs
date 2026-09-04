@@ -1,11 +1,31 @@
 export {
   CLUSTER_BOOTSTRAP_METHOD,
+  CLUSTER_BOOTSTRAP_STATISTIC,
   CLUSTER_BOOTSTRAP_VERSION,
   clusterBootstrapCi,
   type ClusterBootstrapInput,
   type ClusterBootstrapResult,
   type FixtureClusterValue,
 } from './bootstrap.js';
+export {
+  DEFAULT_MINIMUM_DETECTABLE_DELTA,
+  DEFAULT_MINIMUM_DISCORDANT_PAIRS,
+  EXPERIMENT_STATISTICS_VERSION,
+  PAIRED_SIGN_TEST_METHOD,
+  computeExperimentStatistics,
+  type ArmSummary,
+  type ComputeStatisticsInput,
+  type ExperimentStatistics,
+  type ExperimentStatisticsBase,
+  type ExperimentStatisticsLike,
+  type ExperimentVerdict,
+  type FixturePairRecord,
+  type MultipleComparisonMethod,
+  type PairOutcome,
+  type PowerReadiness,
+  type SecondaryComparison,
+  type TrialMetricInput,
+} from './experiment.js';
 export {
   HOLM_CORRECTION_VERSION,
   applyHolmCorrection,
@@ -29,17 +49,11 @@ export {
   type PowerReadinessWarning,
 } from './power.js';
 export {
-  computeExperimentStatistics,
   computeRate,
   median,
   pairedSignTest,
   percentileNearestRank,
   sortNumeric,
-  type ComputeStatisticsInput,
-  type ExperimentStatistics,
-  type ExperimentVerdict,
-  type FixtureClusterSummary,
   type PairedFixtureOutcome,
   type PairedSignTestResult,
-  type TrialMetricInput,
 } from './summary.js';
