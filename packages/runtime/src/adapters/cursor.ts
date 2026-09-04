@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type {
@@ -17,11 +17,13 @@ import type {
 
 import { extractCursorTelemetry } from '../telemetry/cursorExtractor.js';
 import {
-  buildIsolatedHomeEnv,
+  buildCursorChildEnv,
   ensureIsolatedHome,
   parseCursorAgentVersion,
   probeCursorSandbox,
+  probeToObservedCapabilities,
   readCursorAgentVersion,
+  redactCursorArgv,
   TESTED_CURSOR_VERSION_RANGES,
 } from './cursorSupport.js';
 
@@ -30,7 +32,9 @@ export interface CursorAdapterOptions {
   readonly model: string;
   readonly timeoutMs: number;
   readonly pluginDirs?: readonly string[];
+  /** Skip the tested-version gate (doctor still warns). Prefer `AEL_ALLOW_UNTESTED_CURSOR=1`. */
   readonly skipVersionCheck?: boolean;
+  /** Skip the live sandbox probe entirely (capabilities reported as unverified). */
   readonly skipSandboxProbe?: boolean;
 }
 
@@ -38,6 +42,18 @@ const CAPABILITIES: AgentAdapterCapabilities = {
   resume: true,
   streamJsonTelemetry: true,
   sandboxProbe: true,
+};
+
+/** Upper bound for prompt bodies passed as the positional argument (argv budget). */
+export const CURSOR_MAX_PROMPT_BYTES = 200 * 1024;
+
+const UNVERIFIED_CAPABILITIES: IsolationCapabilities = {
+  level: 'agent-cli-sandbox',
+  filesystemEnforced: false,
+  networkPolicyEnforced: false,
+  processTreeEnforced: false,
+  hiddenGraderProtected: false,
+  externalArtifactsProtected: false,
 };
 
 export function createCursorAdapter(options: CursorAdapterOptions): AgentAdapter {
@@ -51,47 +67,50 @@ export function createCursorAdapter(options: CursorAdapterOptions): AgentAdapter
       const messages: string[] = [];
       const version = await readCursorAgentVersion(command);
       if (version === null) {
-        if (process.env.AEL_SKIP_SANDBOX_PROBE === '1') {
-          messages.push('cursor-agent version unavailable; probe skipped for CI');
-          return {
-            ready: true,
-            messages,
-            capabilities: CAPABILITIES,
-          };
-        }
+        messages.push(
+          `cursor-agent not found, exited non-zero, or timed out on --version (command: ${command})`,
+        );
         return {
           ready: false,
-          messages: ['cursor-agent not found or --version failed'],
+          messages,
           capabilities: CAPABILITIES,
+          observedCapabilities: UNVERIFIED_CAPABILITIES,
         };
       }
       messages.push(`cursor-agent version ${version.raw}`);
-      if (!options.skipVersionCheck && !version.supported) {
-        messages.push(
-          `version ${version.raw} is outside tested ranges; telemetry and sandbox behavior may degrade`,
-        );
+
+      let ready = true;
+      if (!version.supported) {
+        const allowUntested =
+          options.skipVersionCheck === true || process.env.AEL_ALLOW_UNTESTED_CURSOR === '1';
+        if (allowUntested) {
+          messages.push(
+            `warning: version ${version.raw} is outside tested ranges (${TESTED_CURSOR_VERSION_RANGES.join(', ')}); proceeding because untested versions were explicitly allowed`,
+          );
+        } else {
+          ready = false;
+          messages.push(
+            `version ${version.raw} is outside tested ranges (${TESTED_CURSOR_VERSION_RANGES.join(', ')}); set AEL_ALLOW_UNTESTED_CURSOR=1 to proceed at your own risk`,
+          );
+        }
       }
 
-      let observedCapabilities: IsolationCapabilities | undefined;
-      if (!options.skipSandboxProbe && process.env.AEL_SKIP_SANDBOX_PROBE !== '1') {
+      let observedCapabilities: IsolationCapabilities = UNVERIFIED_CAPABILITIES;
+      if (options.skipSandboxProbe === true || process.env.AEL_SKIP_SANDBOX_PROBE === '1') {
+        messages.push(
+          'sandbox probe skipped (AEL_SKIP_SANDBOX_PROBE); observed capabilities are unverified',
+        );
+      } else {
         const probe = await probeCursorSandbox({
           command,
-          workspaceRoot: input.workspaceRoot,
           model: input.model ?? options.model,
           timeoutMs: Math.min(options.timeoutMs, 60_000),
         });
         for (const message of probe.messages) {
           messages.push(message);
         }
-        observedCapabilities = {
-          level: 'agent-cli-sandbox',
-          filesystemEnforced: probe.readHomeBlocked && probe.writeOutsideWorkspaceBlocked,
-          networkPolicyEnforced: probe.networkBlocked,
-          processTreeEnforced: false,
-          hiddenGraderProtected: false,
-          externalArtifactsProtected: false,
-        };
-        if (!observedCapabilities.filesystemEnforced) {
+        observedCapabilities = probeToObservedCapabilities(probe);
+        if (probe.status === 'observed' && !observedCapabilities.filesystemEnforced) {
           messages.push(
             'sandbox probe did not observe filesystem enforcement; do not trust --sandbox flag alone',
           );
@@ -99,11 +118,11 @@ export function createCursorAdapter(options: CursorAdapterOptions): AgentAdapter
       }
 
       return {
-        ready: true,
+        ready,
         messages,
         version: version.raw,
         capabilities: CAPABILITIES,
-        ...(observedCapabilities !== undefined ? { observedCapabilities } : {}),
+        observedCapabilities,
       };
     },
     async buildInvocation(input: AgentInvocationInput): Promise<ProcessInvocation> {
@@ -113,16 +132,25 @@ export function createCursorAdapter(options: CursorAdapterOptions): AgentAdapter
         join(input.workspaceRoot, '.ael', 'isolated-home', input.trialId ?? input.phaseId);
       await ensureIsolatedHome(isolatedHomeRoot);
 
-      const env: Record<string, string> = {};
-      for (const [key, value] of Object.entries(process.env)) {
-        if (value !== undefined) {
-          env[key] = value;
-        }
+      const promptInfo = await stat(promptPath);
+      if (promptInfo.size > CURSOR_MAX_PROMPT_BYTES) {
+        throw new Error(
+          `prompt file ${promptPath} is ${String(promptInfo.size)} bytes; cursor adapter limit is ${String(CURSOR_MAX_PROMPT_BYTES)} bytes`,
+        );
       }
-      Object.assign(env, buildIsolatedHomeEnv(isolatedHomeRoot));
+      const prompt = await readFile(promptPath, 'utf8');
+      if (prompt.trim().length === 0) {
+        throw new Error(`prompt file ${promptPath} is empty`);
+      }
+
+      const env = buildCursorChildEnv(isolatedHomeRoot);
       env.AEL_PHASE_ID = input.phaseId;
       env.AEL_SESSION_MODE = input.sessionMode;
 
+      // Every flag below is cross-checked against `cursor-agent --help` (2026.09.02):
+      // -p/--print, --output-format <format>, --trust, --sandbox <mode>, --workspace <path>,
+      // --model <model>, --plugin-dir <path> (repeatable), --resume [chatId]. The prompt is the
+      // positional `[prompt...]` argument; `@path` is a file *mention*, not a prompt-file flag.
       const args = [
         '--print',
         '--output-format',
@@ -148,7 +176,7 @@ export function createCursorAdapter(options: CursorAdapterOptions): AgentAdapter
         args.push('--resume', input.resumeChatId);
       }
 
-      args.push(`@${promptPath}`);
+      args.push(prompt);
 
       return {
         command,
@@ -156,6 +184,7 @@ export function createCursorAdapter(options: CursorAdapterOptions): AgentAdapter
         cwd: input.workspaceRoot,
         env,
         timeoutMs: input.timeoutMs ?? options.timeoutMs,
+        redactedArgv: redactCursorArgv(command, args),
       };
     },
     async parseOutcome(input: AgentOutcomeInput): Promise<AgentOutcome> {

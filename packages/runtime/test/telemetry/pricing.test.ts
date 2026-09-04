@@ -51,6 +51,29 @@ describe('telemetry pricing and provenance', () => {
     expect(aggregated.outputTokens.coverageReason).toContain('partial');
   });
 
+  it('marks cost estimated when a measured token component has no price', () => {
+    const pricing = loadPricingSnapshot(examplesRoot);
+    const telemetry = extractCursorTelemetry(
+      '{"type":"result","usage":{"input_tokens":1000,"output_tokens":100,"reasoning_tokens":50}}',
+    ).telemetry;
+    const cost = computeTelemetryCost(telemetry, 'composer-2.5', pricing);
+    expect(cost.quality).toBe('estimated');
+    expect(cost.value).toBeGreaterThan(0);
+    expect(cost.coverageReason).toContain('reasoning');
+  });
+
+  it('counts unique tool call_id values rather than started+completed events', () => {
+    const telemetry = extractCursorTelemetry(
+      [
+        '{"type":"tool_call","subtype":"started","call_id":"call-1"}',
+        '{"type":"tool_call","subtype":"completed","call_id":"call-1"}',
+        '{"type":"tool_call","subtype":"started","call_id":"call-2"}',
+        '{"type":"tool_call","subtype":"completed","call_id":"call-2"}',
+      ].join('\n'),
+    ).telemetry;
+    expect(telemetry.toolCalls.value).toBe(2);
+  });
+
   it('estimates advisory exposure for plan output', () => {
     const pricing = loadPricingSnapshot(examplesRoot);
     const advisory = estimateAdvisoryExposure({

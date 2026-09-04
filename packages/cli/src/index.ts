@@ -23,8 +23,15 @@ export const PACKAGE_NAME = '@ael/cli' as const;
 
 function readPackageVersion(): string {
   const packageJsonPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json');
-  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as { version: string };
-  return packageJson.version;
+  const raw: unknown = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+  if (typeof raw !== 'object' || raw === null || !('version' in raw)) {
+    throw new Error(`invalid package.json at ${packageJsonPath}`);
+  }
+  const version = raw.version;
+  if (typeof version !== 'string' || version.length === 0) {
+    throw new Error(`package.json missing version at ${packageJsonPath}`);
+  }
+  return version;
 }
 
 const context = {
@@ -70,8 +77,13 @@ export function createProgram(): Command {
   program
     .command('doctor')
     .requiredOption('--suite <suite.yaml>')
-    .action(async (options: { suite: string }) => {
-      process.exitCode = await doctorCommand(options.suite, context);
+    .option('--out <directory>')
+    .action(async (options: { suite: string; out?: string }) => {
+      process.exitCode = await doctorCommand(
+        options.suite,
+        context,
+        options.out !== undefined ? { out: options.out } : {},
+      );
     });
 
   program
@@ -88,30 +100,57 @@ export function createProgram(): Command {
     .requiredOption('--suite <suite.yaml>')
     .requiredOption('--output <root>')
     .option('--fake-agent <path>')
-    .action(async (options: { suite: string; output: string; fakeAgent?: string }) => {
-      const fakeAgent =
-        options.fakeAgent ??
-        join(dirname(fileURLToPath(import.meta.url)), '../../../tests/fake-agent/fake-agent.mjs');
-      process.exitCode = await runCommand(options.suite, options.output, fakeAgent, context);
-    });
+    .option('--approve-live-run')
+    .action(
+      async (options: {
+        suite: string;
+        output: string;
+        fakeAgent?: string;
+        approveLiveRun?: boolean;
+      }) => {
+        const fakeAgent =
+          options.fakeAgent ??
+          join(dirname(fileURLToPath(import.meta.url)), '../../../tests/fake-agent/fake-agent.mjs');
+        process.exitCode = await runCommand(
+          options.suite,
+          options.output,
+          fakeAgent,
+          context,
+          options.approveLiveRun === true ? { approveLiveRun: true } : {},
+        );
+      },
+    );
 
   program
     .command('resume')
     .argument('<experiment-root>')
     .requiredOption('--suite <suite.yaml>')
     .option('--fake-agent <path>')
-    .action(async (experimentRoot: string, options: { suite: string; fakeAgent?: string }) => {
-      const fakeAgent =
-        options.fakeAgent ??
-        join(dirname(fileURLToPath(import.meta.url)), '../../../tests/fake-agent/fake-agent.mjs');
-      process.exitCode = await resumeCommand(options.suite, experimentRoot, fakeAgent, context);
-    });
+    .option('--approve-live-run')
+    .action(
+      async (
+        experimentRoot: string,
+        options: { suite: string; fakeAgent?: string; approveLiveRun?: boolean },
+      ) => {
+        const fakeAgent =
+          options.fakeAgent ??
+          join(dirname(fileURLToPath(import.meta.url)), '../../../tests/fake-agent/fake-agent.mjs');
+        process.exitCode = await resumeCommand(
+          options.suite,
+          experimentRoot,
+          fakeAgent,
+          context,
+          options.approveLiveRun === true ? { approveLiveRun: true } : {},
+        );
+      },
+    );
 
   program
     .command('status')
     .argument('<experiment-root>')
-    .action((experimentRoot: string) => {
-      process.exitCode = statusCommand(experimentRoot, context);
+    .option('--json')
+    .action((experimentRoot: string, options: { json?: boolean }) => {
+      process.exitCode = statusCommand(experimentRoot, context, options.json === true);
     });
 
   program
