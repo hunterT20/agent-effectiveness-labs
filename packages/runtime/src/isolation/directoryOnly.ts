@@ -54,7 +54,7 @@ export class DirectoryOnlyIsolationProvider implements IsolationProvider {
   }
 
   async run(session: IsolationSession, input: ProcessInvocation): Promise<ProcessResult> {
-    const directorySession = session as DirectorySession;
+    const directorySession = toDirectorySession(session);
     const supervisor = new ProcessSupervisor(
       directorySession.logDir !== undefined ? { logDir: directorySession.logDir } : {},
     );
@@ -69,7 +69,16 @@ export class DirectoryOnlyIsolationProvider implements IsolationProvider {
   }
 
   dispose(session: IsolationSession): Promise<void> {
-    void session;
+    void toDirectorySession(session);
     return Promise.resolve();
   }
+}
+
+function toDirectorySession(session: IsolationSession): DirectorySession {
+  const logDir =
+    'logDir' in session && typeof session.logDir === 'string' ? session.logDir : undefined;
+  return {
+    id: session.id,
+    ...(logDir !== undefined ? { logDir } : {}),
+  };
 }

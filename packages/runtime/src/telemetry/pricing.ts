@@ -122,38 +122,59 @@ export function computeTelemetryCost(
     }
   }
 
+  // Cost quality rules (see docs/telemetry.md):
+  //   - `unavailable` when input/output tokens or their rates are missing (handled above);
+  //   - `estimated` when any token component that *was* measured (non-null value) has no rate,
+  //     or when any priced component is itself only `estimated`;
+  //   - `exact` only when every measured component is exact and priced.
+  const unpricedComponents: string[] = [];
+  const estimatedComponents: string[] = [];
   let total = 0;
-  total +=
-    ((telemetry.inputTokens.value ?? 0) * (modelPricing.components.inputPerMillion ?? 0)) /
-    1_000_000;
-  total +=
-    ((telemetry.outputTokens.value ?? 0) * (modelPricing.components.outputPerMillion ?? 0)) /
-    1_000_000;
 
-  if (
-    telemetry.cachedInputTokens.quality === 'exact' &&
-    telemetry.cachedInputTokens.value !== null &&
-    modelPricing.components.cachedInputPerMillion !== null
-  ) {
-    total +=
-      (telemetry.cachedInputTokens.value * modelPricing.components.cachedInputPerMillion) /
-      1_000_000;
+  const priced: Array<{ metric: MetricValue<number>; rate: number | null; label: string }> = [
+    ...required,
+    {
+      metric: telemetry.cachedInputTokens,
+      rate: modelPricing.components.cachedInputPerMillion,
+      label: 'cachedInput',
+    },
+    {
+      metric: telemetry.reasoningTokens,
+      rate: modelPricing.components.reasoningPerMillion,
+      label: 'reasoning',
+    },
+    { metric: telemetry.subagentTokens, rate: null, label: 'subagent' },
+  ];
+
+  for (const component of priced) {
+    if (component.metric.value === null || component.metric.quality === 'unavailable') {
+      continue;
+    }
+    if (component.rate === null) {
+      if (component.metric.value > 0) {
+        unpricedComponents.push(component.label);
+      }
+      continue;
+    }
+    if (component.metric.quality === 'estimated') {
+      estimatedComponents.push(component.label);
+    }
+    total += (component.metric.value * component.rate) / 1_000_000;
   }
 
-  if (
-    telemetry.reasoningTokens.quality === 'exact' &&
-    telemetry.reasoningTokens.value !== null &&
-    modelPricing.components.reasoningPerMillion !== null
-  ) {
-    total +=
-      (telemetry.reasoningTokens.value * modelPricing.components.reasoningPerMillion) / 1_000_000;
+  const reasons: string[] = [];
+  if (unpricedComponents.length > 0) {
+    reasons.push(`no price for measured ${unpricedComponents.join(', ')} tokens`);
+  }
+  if (estimatedComponents.length > 0) {
+    reasons.push(`${estimatedComponents.join(', ')} tokens are estimated`);
   }
 
   return {
     value: total,
-    quality: 'exact',
+    quality: reasons.length > 0 ? 'estimated' : 'exact',
     source: 'pricing-snapshot',
-    coverageReason: null,
+    coverageReason: reasons.length > 0 ? reasons.join('; ') : null,
   };
 }
 

@@ -1,4 +1,13 @@
-export { parseStreamJsonLines, extractSessionChatId, type StreamJsonLine } from './streamJson.js';
+export {
+  parseStreamJsonLines,
+  parseStreamJsonLinesDetailed,
+  extractSessionChatId,
+  StreamJsonLineSchema,
+  StreamJsonUsageSchema,
+  type StreamJsonLine,
+  type StreamJsonParseResult,
+  type StreamJsonUsage,
+} from './streamJson.js';
 export { extractCursorTelemetry, type CursorTelemetryExtraction } from './cursorExtractor.js';
 export {
   aggregateTelemetryPhases,

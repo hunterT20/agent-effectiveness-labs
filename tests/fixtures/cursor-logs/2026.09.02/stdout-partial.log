@@ -1,2 +1,4 @@
 not-json-line
-{"type":"assistant","usage":{"input_tokens":10,"output_tokens":5}}
+{"type":"system","subtype":"init","apiKeySource":"login","cwd":"/tmp/ael-ws/trial-2","session_id":"chat-redacted-002","chat_id":"chat-redacted-002","model":"composer-2.5","permissionMode":"default"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Partial output before the process was terminated."}]},"session_id":"chat-redacted-002","usage":{"input_tokens":10,"output_tokens":5}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"still working"}]},"session_id":"chat-redacted-002","usage":{"input_tokens":"not-a-number"}}

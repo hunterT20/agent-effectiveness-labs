@@ -25,6 +25,7 @@ describe('agent-cli-sandbox isolation', () => {
       readHomeBlocked: true,
       writeOutsideWorkspaceBlocked: true,
       networkBlocked: true,
+      status: 'observed',
       messages: ['probe ok'],
     });
     const adapter = createCursorAdapter({
@@ -46,6 +47,7 @@ describe('agent-cli-sandbox isolation', () => {
       readHomeBlocked: false,
       writeOutsideWorkspaceBlocked: false,
       networkBlocked: false,
+      status: 'inconclusive',
       messages: ['no output'],
     });
     const adapter = createCursorAdapter({

@@ -51,6 +51,12 @@ export interface ProcessInvocation {
   readonly cwd: string;
   readonly env: Readonly<Record<string, string>>;
   readonly timeoutMs: number;
+  /**
+   * Provenance copy of `[command, ...args]` with secrets (API keys, tokens) redacted.
+   * Safe to persist in artifacts; never contains raw credentials or prompt bodies longer
+   * than the adapter's redaction budget.
+   */
+  readonly redactedArgv?: readonly string[];
 }
 
 export interface IsolationProvider {
