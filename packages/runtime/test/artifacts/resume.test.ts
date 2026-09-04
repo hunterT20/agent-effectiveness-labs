@@ -54,6 +54,8 @@ describe('resume', () => {
       checkpointSeq: 2,
       state: {
         schemaVersion: 1,
+        trialId: 'trial-1',
+        attemptId: 'attempt-2',
         status: 'running',
         checkpointSeq: 2,
       },

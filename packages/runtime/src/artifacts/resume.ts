@@ -2,13 +2,13 @@ import { readFile } from 'node:fs/promises';
 
 import { readAtomicJson } from './atomicWrite.js';
 import { resolveArtifactPath } from './paths.js';
-import { AttemptStateSchema } from './schemas.js';
+import { AttemptStateSchema, type AttemptState } from './schemas.js';
 
 export interface Checkpoint {
   readonly trialId: string;
   readonly attemptId: string;
   readonly checkpointSeq: number;
-  readonly state: unknown;
+  readonly state: AttemptState;
 }
 
 interface CheckpointEvent {
