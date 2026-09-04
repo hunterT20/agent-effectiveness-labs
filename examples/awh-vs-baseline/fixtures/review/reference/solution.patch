@@ -1,12 +1,17 @@
-diff --git a/src/tasks/review/status.txt b/src/tasks/review/status.txt
---- a/src/tasks/review/status.txt
-+++ b/src/tasks/review/status.txt
-@@ -1 +1 @@
--broken
-+fixed
- diff --git a/src/tasks/review/review-notes.txt b/src/tasks/review/review-notes.txt
---- a/src/tasks/review/review-notes.txt
-+++ b/src/tasks/review/review-notes.txt
-@@ -1 +1 @@
--pending
-+Investigation complete with actionable findings.
+diff --git a/reviews/PAYROLL.md b/reviews/PAYROLL.md
+index 47c12aa..637892e 100644
+--- a/reviews/PAYROLL.md
++++ b/reviews/PAYROLL.md
+@@ -1,8 +1,8 @@
+ # Payroll review
+ 
+-Reviewer:
+-Status: pending
++Reviewer: ael-reference
++Status: reject
+ Findings:
+--
++- withholdingCents(grossCents, percent) multiplies by percent and never divides by 100, over-withholding by 100x.
+ 
+-Verdict:
++Verdict: reject until withholdingCents divides by 100

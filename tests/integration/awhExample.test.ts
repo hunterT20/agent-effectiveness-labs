@@ -56,7 +56,7 @@ describe('awh-vs-baseline example suite', () => {
         seedRepositoryPath: join(examplesRoot, 'seed-repo'),
         repositoryCommit,
         workDir,
-        repeatCount: 1,
+        repeatCount: 3,
       });
       expect(result.valid, result.messages.join('; ')).toBe(true);
     }, 60_000);

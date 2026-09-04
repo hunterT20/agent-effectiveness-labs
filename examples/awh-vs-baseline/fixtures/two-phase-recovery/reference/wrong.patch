@@ -1,12 +1,19 @@
-diff --git a/src/tasks/two-phase-recovery/phase1.txt b/src/tasks/two-phase-recovery/phase1.txt
---- a/src/tasks/two-phase-recovery/phase1.txt
-+++ b/src/tasks/two-phase-recovery/phase1.txt
-@@ -1 +1 @@
--broken
-+wrong
- diff --git a/src/tasks/two-phase-recovery/phase2.txt b/src/tasks/two-phase-recovery/phase2.txt
---- a/src/tasks/two-phase-recovery/phase2.txt
-+++ b/src/tasks/two-phase-recovery/phase2.txt
-@@ -1 +1 @@
--broken
-+wrong
+diff --git a/src/journal.mjs b/src/journal.mjs
+index 1e36389..6db35b9 100644
+--- a/src/journal.mjs
++++ b/src/journal.mjs
+@@ -11,6 +11,14 @@ export class Journal {
+     return id;
+   }
+ 
++  void(id) {
++    const index = this._items.findIndex((entry) => entry.id === id);
++    if (index < 0) {
++      throw new RangeError('unknown id');
++    }
++    this._items.splice(index, 1);
++  }
++
+   items() {
+     return this._items.map((item) => ({ ...item }));
+   }

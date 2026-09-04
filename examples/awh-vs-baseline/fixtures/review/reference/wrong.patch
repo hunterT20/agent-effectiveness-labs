@@ -1,12 +1,11 @@
-diff --git a/src/tasks/review/status.txt b/src/tasks/review/status.txt
---- a/src/tasks/review/status.txt
-+++ b/src/tasks/review/status.txt
-@@ -1 +1 @@
--broken
-+wrong
- diff --git a/src/tasks/review/review-notes.txt b/src/tasks/review/review-notes.txt
---- a/src/tasks/review/review-notes.txt
-+++ b/src/tasks/review/review-notes.txt
-@@ -1 +1 @@
--pending
-+Investigation complete with actionable findings.
+diff --git a/src/payroll.mjs b/src/payroll.mjs
+index 838e648..a714cab 100644
+--- a/src/payroll.mjs
++++ b/src/payroll.mjs
+@@ -5,5 +5,5 @@ export function grossPayCents(hourlyRateCents, hours) {
+ }
+ 
+ export function withholdingCents(grossCents, percent) {
+-  return Math.round(grossCents * percent);
++  return Math.round((grossCents * percent) / 100);
+ }

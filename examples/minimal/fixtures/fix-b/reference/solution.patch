@@ -1,7 +1,13 @@
-diff --git a/src/answer.txt b/src/answer.txt
-index 6b8710a..7146568 100644
---- a/src/answer.txt
-+++ b/src/answer.txt
-@@ -1 +1 @@
--pending
-+correct-answer
+diff --git a/src/temperature.mjs b/src/temperature.mjs
+index c99a09c..cf5b835 100644
+--- a/src/temperature.mjs
++++ b/src/temperature.mjs
+@@ -4,7 +4,7 @@ const FREEZING_POINT_F = 32;
+ 
+ /** 100 °C => 212 °F */
+ export function celsiusToFahrenheit(celsius) {
+-  return (celsius * 9) / 5 - FREEZING_POINT_F;
++  return (celsius * 9) / 5 + FREEZING_POINT_F;
+ }
+ 
+ /** 212 °F => 100 °C */

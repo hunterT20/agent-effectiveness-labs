@@ -5,7 +5,7 @@ name: AWH vs baseline effectiveness
 repository:
   type: local-git
   path: ./seed-repo
-  commit: 70955d281eaf0cad19cddcc5cfaf1bb2397ed2ee
+  commit: cb0d8014656e75ebd264db8ee0bcf0710b30bd10
 
 agent:
   adapter: fake-agent

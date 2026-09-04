@@ -1,4 +1,10 @@
 {
-  "verdict": "pass",
-  "summary": "acceptable plan"
+  "totalCents": 6000,
+  "count": 6,
+  "byCategory": {
+    "food": 2200,
+    "rent": 4000,
+    "refund": -200
+  },
+  "largestId": "t2"
 }

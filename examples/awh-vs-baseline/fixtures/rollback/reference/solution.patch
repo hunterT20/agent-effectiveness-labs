@@ -1,12 +1,23 @@
-diff --git a/src/tasks/rollback/status.txt b/src/tasks/rollback/status.txt
---- a/src/tasks/rollback/status.txt
-+++ b/src/tasks/rollback/status.txt
-@@ -1 +1 @@
--broken
-+fixed
- diff --git a/src/tasks/rollback/attempt.txt b/src/tasks/rollback/attempt.txt
---- a/src/tasks/rollback/attempt.txt
-+++ b/src/tasks/rollback/attempt.txt
-@@ -1 +1 @@
--broken
-+rolled-back
+diff --git a/docs/CHANGELOG.md b/docs/CHANGELOG.md
+index fa8b5dd..cb6ba41 100644
+--- a/docs/CHANGELOG.md
++++ b/docs/CHANGELOG.md
+@@ -4,3 +4,7 @@
+ 
+ monthlyRate now returns percentage points per month rather than a fraction.
+ projectBalance consumes that new contract.
++
++## 1.3.1
++
++Rolled monthlyRate back to a true monthly fraction (annualPercent / 100 / 12).
+diff --git a/src/interest.mjs b/src/interest.mjs
+index d8655bf..5a49280 100644
+--- a/src/interest.mjs
++++ b/src/interest.mjs
+@@ -1,5 +1,5 @@
+ export function monthlyRate(annualPercent) {
+-  return annualPercent / 12;
++  return annualPercent / 100 / 12;
+ }
+ 
+ export function projectBalance(principalCents, annualPercent, months) {

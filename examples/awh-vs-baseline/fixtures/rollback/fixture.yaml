@@ -1,6 +1,6 @@
 schemaVersion: 1
 id: rollback
-name: rollback
+name: Roll back monthlyRate contract
 category: rollback
 outcomeMode: repository
 
@@ -11,15 +11,15 @@ phases:
 
 limits:
   timeoutMsPerPhase: 30000
-  maxChangedFiles: 12
+  maxChangedFiles: 3
 
 candidate:
   allowedPaths:
-    - src/**
-    - .ael/**
+    - src/interest.mjs
+    - docs/CHANGELOG.md
   forbiddenPaths:
     - grader/**
-    - forbidden/**
+
 
 grading:
   deterministic:

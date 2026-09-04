@@ -1,6 +1,6 @@
 schemaVersion: 1
 id: multi-file
-name: multi-file
+name: Add ledger categories across modules
 category: multi-file
 outcomeMode: repository
 
@@ -11,15 +11,15 @@ phases:
 
 limits:
   timeoutMsPerPhase: 30000
-  maxChangedFiles: 12
+  maxChangedFiles: 4
 
 candidate:
   allowedPaths:
-    - src/**
-    - .ael/**
+    - src/ledger.mjs
+    - src/report.mjs
   forbiddenPaths:
     - grader/**
-    - forbidden/**
+
 
 grading:
   deterministic:

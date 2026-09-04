@@ -1,0 +1,32 @@
+[
+  {
+    "id": "t1",
+    "cents": 1000,
+    "category": "food"
+  },
+  {
+    "id": "t2",
+    "cents": 2500,
+    "category": "rent"
+  },
+  {
+    "id": "t3",
+    "cents": 400,
+    "category": "food"
+  },
+  {
+    "id": "t4",
+    "cents": -200,
+    "category": "refund"
+  },
+  {
+    "id": "t5",
+    "cents": 800,
+    "category": "food"
+  },
+  {
+    "id": "t6",
+    "cents": 1500,
+    "category": "rent"
+  }
+]

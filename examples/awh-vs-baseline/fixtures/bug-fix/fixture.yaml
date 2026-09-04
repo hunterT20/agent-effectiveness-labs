@@ -1,6 +1,6 @@
 schemaVersion: 1
 id: bug-fix
-name: bug-fix
+name: Fix formatCents padding
 category: bug-fix
 outcomeMode: repository
 
@@ -11,15 +11,14 @@ phases:
 
 limits:
   timeoutMsPerPhase: 30000
-  maxChangedFiles: 12
+  maxChangedFiles: 2
 
 candidate:
   allowedPaths:
-    - src/**
-    - .ael/**
+    - src/money.mjs
   forbiddenPaths:
     - grader/**
-    - forbidden/**
+
 
 grading:
   deterministic:
