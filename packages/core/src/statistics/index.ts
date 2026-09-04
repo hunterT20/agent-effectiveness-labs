@@ -35,10 +35,21 @@ export {
   type HolmCorrectionResult,
 } from './holm.js';
 export {
+  FLEISS_KAPPA_METHOD_VERSION,
   KAPPA_METHOD_VERSION,
+  KAPPA_REASON_ALL_IDENTICAL,
+  KAPPA_REASON_NO_PACKETS,
+  KAPPA_REASON_TOO_FEW_RATERS,
+  KAPPA_REASON_UNDEFINED,
+  KAPPA_REASON_UNEQUAL_RATERS,
+  PERCENT_AGREEMENT_METHOD_VERSION,
   cohenKappa,
+  fleissKappa,
   interRaterAgreementForPackets,
+  pairwisePercentAgreement,
   type CohenKappaResult,
+  type FleissKappaResult,
+  type PercentAgreementResult,
   type RaterRating,
 } from './kappa.js';
 export {
