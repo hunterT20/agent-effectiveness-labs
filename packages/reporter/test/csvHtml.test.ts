@@ -13,7 +13,16 @@ describe('reporter CSV and HTML', () => {
     experimentId: '=cmd|"/c calc"!A0',
     suiteName: 'minimal',
     verdict: 'INSUFFICIENT_DATA',
-    gates: [{ id: '@inject', status: 'failed', message: '<script>alert(1)</script>' }],
+    gates: [
+      {
+        id: '@inject',
+        status: 'failed',
+        actual: null,
+        expected: 'safe',
+        message: '<script>alert(1)</script>',
+        evidencePaths: [],
+      },
+    ],
     statistics: {
       independentFixtureCount: 3,
       trialCount: 6,

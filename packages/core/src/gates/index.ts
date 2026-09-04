@@ -1,1 +1,10 @@
-export { deriveVerdict, evaluateGates, type EvaluateGatesInput } from './evaluate.js';
+export {
+  deriveVerdict,
+  evaluateGates,
+  requiredCapabilityNames,
+  unmetRequiredCapabilities,
+  type BlindedAgreementEvidence,
+  type CapabilityEvidence,
+  type EvaluateGatesInput,
+  type SafetyViolationEvidence,
+} from './evaluate.js';

@@ -1,4 +1,8 @@
-export const POWER_READINESS_VERSION = 'power-readiness-v1' as const;
+/**
+ * v2: paired-binary (McNemar / sign test) sample size per Connor (1987), replacing the v1
+ * approximation that ignored the effect size in the denominator and under-estimated by ~10x.
+ */
+export const POWER_READINESS_VERSION = 'power-readiness-v2' as const;
 
 export interface PowerReadinessInput {
   readonly independentFixtureCount: number;
@@ -30,21 +34,32 @@ function normalQuantile(probability: number): number {
   return probability < 0.5 ? -value : value;
 }
 
-/** Approximate paired sign-test sample size for a binary success delta. */
+/**
+ * Approximate number of paired fixtures needed for a one-sided paired sign / McNemar test to
+ * detect `minimumDetectableDelta` in verified-success rate at the given alpha and power.
+ *
+ * Assumes independence between arms within a fixture so the discordant proportion is
+ * `pd = b(1 - t) + (1 - b)t` with `b` the baseline rate and `t = min(1, b + delta)`.
+ * Sample size: `n = (z_a * sqrt(pd) + z_b * sqrt(pd - delta^2))^2 / delta^2`.
+ */
 export function estimateRequiredFixtureCount(input: PowerReadinessInput): number {
-  const baseline = input.baselineSuccessRate ?? 0.5;
-  const delta = input.minimumDetectableDelta;
+  const baseline = Math.min(1, Math.max(0, input.baselineSuccessRate ?? 0.5));
   const alpha = input.alpha ?? 0.05;
   const power = input.power ?? 0.8;
-  const treatment = Math.min(1, Math.max(0, baseline + delta));
+  const treatment = Math.min(1, Math.max(0, baseline + input.minimumDetectableDelta));
+  const delta = treatment - baseline;
+  if (delta <= 0) {
+    return Number.POSITIVE_INFINITY;
+  }
   const discordantRate = baseline * (1 - treatment) + (1 - baseline) * treatment;
   if (discordantRate <= 0) {
     return Number.POSITIVE_INFINITY;
   }
   const zAlpha = normalQuantile(1 - alpha);
   const zBeta = normalQuantile(power);
-  const numerator = (zAlpha + zBeta) ** 2;
-  return Math.ceil(numerator / (4 * discordantRate ** 2));
+  const tail = Math.sqrt(Math.max(0, discordantRate - delta * delta));
+  const numerator = (zAlpha * Math.sqrt(discordantRate) + zBeta * tail) ** 2;
+  return Math.max(1, Math.ceil(numerator / (delta * delta)));
 }
 
 export function assessPowerReadiness(input: PowerReadinessInput): PowerReadinessWarning | null {

@@ -22,7 +22,7 @@ describe('cluster bootstrap', () => {
     const first = clusterBootstrapCi(input);
     const second = clusterBootstrapCi(input);
     expect(first.method).toBe('percentile-cluster-resample');
-    expect(first.version).toBe('cluster-bootstrap-v1');
+    expect(first.version).toBe('cluster-bootstrap-v2');
     expect(first.lower).not.toBeNull();
     expect(first.upper).not.toBeNull();
     expect(first).toEqual(second);

@@ -19,3 +19,17 @@ export {
 export { readLastValidCheckpoint, type Checkpoint } from './resume.js';
 export { computeHostFingerprint } from './host.js';
 export { createRunKeySourceFromEnv, createRunKeySourceFromHex } from './runKey.js';
+export {
+  collectExperimentResults,
+  collectedTrialToMetric,
+  AttemptStateSchema,
+  BlindedAgreementFileSchema,
+  DoctorArtifactSchema,
+  type AttemptState,
+  type BlindedAgreementFile,
+  type CollectedDoctorEvidence,
+  type CollectedTrialResult,
+  type DoctorArtifact,
+  type ExperimentResultSet,
+  type UnresolvedAttempt,
+} from './collectResults.js';
