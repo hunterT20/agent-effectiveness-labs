@@ -12,3 +12,9 @@ export * from './adapters/index.js';
 export * from './grading/index.js';
 export * from './runner/index.js';
 export * from './telemetry/index.js';
+export {
+  AttemptProvenanceSchema,
+  AttemptStateSchema,
+  type AttemptProvenance,
+  type AttemptState,
+} from './artifacts/schemas.js';
