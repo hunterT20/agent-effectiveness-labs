@@ -1,0 +1,41 @@
+schemaVersion: 1
+id: review
+name: Review payroll withholding without patching it
+category: review
+outcomeMode: repository
+
+phases:
+  - id: initial
+    promptFile: ./prompts/initial.md
+    session: new
+
+limits:
+  timeoutMsPerPhase: 30000
+  maxChangedFiles: 2
+
+candidate:
+  allowedPaths:
+    - reviews/PAYROLL.md
+  forbiddenPaths:
+    - src/payroll.mjs
+    - grader/**
+
+
+grading:
+  deterministic:
+    - id: hidden-check
+      command: node
+      args: [./grader/check.mjs]
+      required: true
+  blindedRubric:
+    enabled: false
+    rubricFile: null
+    minimumRaters: 0
+    minimumAgreement: null
+  llmJudge:
+    role: disabled
+
+reference:
+  solutionPatch: ./reference/solution.patch
+  mutationCases:
+    - ./reference/wrong.patch

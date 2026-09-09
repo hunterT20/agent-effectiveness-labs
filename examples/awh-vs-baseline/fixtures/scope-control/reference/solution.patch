@@ -1,0 +1,7 @@
+diff --git a/src/messages.mjs b/src/messages.mjs
+index bed3e0f..cdf96e8 100644
+--- a/src/messages.mjs
++++ b/src/messages.mjs
+@@ -1 +1 @@
+-export const INSUFFICIENT_FUNDS = 'Insufficent funds';
++export const INSUFFICIENT_FUNDS = 'Insufficient funds';

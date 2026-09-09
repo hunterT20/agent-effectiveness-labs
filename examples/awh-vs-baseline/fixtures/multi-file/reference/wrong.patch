@@ -1,0 +1,15 @@
+diff --git a/src/report.mjs b/src/report.mjs
+index 0fa7f92..d769deb 100644
+--- a/src/report.mjs
++++ b/src/report.mjs
+@@ -1,4 +1,9 @@
+ export function summarize(entries) {
+   const total = entries.reduce((sum, entry) => sum + entry.amountCents, 0);
+-  return { total, count: entries.length };
++  const byCategory = {};
++  for (const entry of entries) {
++    const category = entry.category === undefined ? 'general' : entry.category;
++    byCategory[category] = (byCategory[category] ?? 0) + entry.amountCents;
++  }
++  return { total, count: entries.length, byCategory };
+ }

@@ -1,0 +1,13 @@
+diff --git a/src/interest.mjs b/src/interest.mjs
+index d8655bf..d948e31 100644
+--- a/src/interest.mjs
++++ b/src/interest.mjs
+@@ -4,7 +4,7 @@ export function monthlyRate(annualPercent) {
+ 
+ export function projectBalance(principalCents, annualPercent, months) {
+   let balance = principalCents;
+-  const rate = monthlyRate(annualPercent);
++  const rate = monthlyRate(annualPercent) / 100;
+   for (let i = 0; i < months; i += 1) {
+     balance = Math.round(balance * (1 + rate));
+   }

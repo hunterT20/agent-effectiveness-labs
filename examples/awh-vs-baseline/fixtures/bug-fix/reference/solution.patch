@@ -1,0 +1,11 @@
+diff --git a/src/money.mjs b/src/money.mjs
+index 2da6742..a345ab9 100644
+--- a/src/money.mjs
++++ b/src/money.mjs
+@@ -3,5 +3,5 @@ export function formatCents(cents) {
+   const abs = Math.abs(cents);
+   const dollars = Math.trunc(abs / 100);
+   const remainder = String(abs % 100);
+-  return sign + '$' + dollars + '.' + remainder.padEnd(2, '0');
++  return sign + '$' + dollars + '.' + remainder.padStart(2, '0');
+ }

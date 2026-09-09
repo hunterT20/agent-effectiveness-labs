@@ -1,0 +1,9 @@
+schemaVersion: 1
+id: treatment
+name: Treatment
+actions:
+  - type: workspace-overlay
+    source: ./overlays/AGENTS.md
+  - type: environment
+    variables:
+      AEL_ARM_MARKER: treatment

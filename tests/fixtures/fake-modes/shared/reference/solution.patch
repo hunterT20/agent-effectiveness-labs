@@ -1,0 +1,6 @@
+diff --git a/src/answer.txt b/src/answer.txt
+--- a/src/answer.txt
++++ b/src/answer.txt
+@@ -1 +1 @@
+-pending
++correct-answer

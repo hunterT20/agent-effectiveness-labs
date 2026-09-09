@@ -1,0 +1,7 @@
+{"type":"system","subtype":"init","apiKeySource":"login","cwd":"/tmp/ael-ws/trial-1","session_id":"chat-redacted-001","chat_id":"chat-redacted-001","model":"composer-2.5","permissionMode":"default"}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"[REDACTED PROMPT]"}]},"session_id":"chat-redacted-001"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"I will inspect the failing test first."}]},"session_id":"chat-redacted-001","usage":{"input_tokens":1200,"output_tokens":320,"cache_read_input_tokens":80,"reasoning_tokens":64}}
+{"type":"tool_call","subtype":"started","call_id":"toolu_redacted_0001","tool_call":{"shellToolCall":{"args":{"command":"npm test"}}},"session_id":"chat-redacted-001"}
+{"type":"tool_call","subtype":"completed","call_id":"toolu_redacted_0001","tool_call":{"shellToolCall":{"args":{"command":"npm test"},"result":{"exitCode":1,"stdout":"[REDACTED]"}}},"session_id":"chat-redacted-001"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Applied fix."}]},"session_id":"chat-redacted-001","usage":{"input_tokens":1200,"output_tokens":320,"cache_read_input_tokens":80,"reasoning_tokens":64}}
+{"type":"result","subtype":"success","duration_ms":18432,"duration_api_ms":17910,"is_error":false,"num_turns":2,"result":"Applied fix.","session_id":"chat-redacted-001","request_id":"req-redacted-0001","usage":{"input_tokens":2400,"output_tokens":640,"cache_read_input_tokens":160,"reasoning_tokens":128,"subagent_tokens":0}}

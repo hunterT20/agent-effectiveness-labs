@@ -1,0 +1,19 @@
+diff --git a/src/temperature.mjs b/src/temperature.mjs
+index c99a09c..28676c0 100644
+--- a/src/temperature.mjs
++++ b/src/temperature.mjs
+@@ -4,12 +4,12 @@ const FREEZING_POINT_F = 32;
+ 
+ /** 100 °C => 212 °F */
+ export function celsiusToFahrenheit(celsius) {
+-  return (celsius * 9) / 5 - FREEZING_POINT_F;
++  return (celsius * 9) / 5 + FREEZING_POINT_F;
+ }
+ 
+ /** 212 °F => 100 °C */
+ export function fahrenheitToCelsius(fahrenheit) {
+-  return ((fahrenheit - FREEZING_POINT_F) * 5) / 9;
++  return (fahrenheit * 5) / 9;
+ }
+ 
+ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {

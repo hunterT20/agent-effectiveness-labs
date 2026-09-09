@@ -1,0 +1,55 @@
+schemaVersion: 1
+id: minimal-effectiveness-perf
+name: Minimal effectiveness slice (perf)
+
+repository:
+  type: local-git
+  path: ./seed-repo
+  commit: 189e0c17b0b2c45b93c4c4a7b36a9baa007ef5cc
+
+agent:
+  adapter: fake-agent
+  model: fake
+  reasoning: standard
+  permissionMode: workspace-write
+
+isolation:
+  provider: directory-only
+  require: {}
+  network: deny
+
+defaults:
+  repeats: 5
+  concurrency: 1
+  timeoutMs: 30000
+  randomSeed: minimal-m1-seed
+  cachePolicy: cold-isolated
+
+primaryControlArm: baseline
+primaryTreatmentArm: treatment
+
+arms:
+  - ./arms/baseline.yaml
+  - ./arms/treatment.yaml
+
+fixtures:
+  - ./fixtures/fix-a/fixture.yaml
+  - ./fixtures/fix-b/fixture.yaml
+  - ./fixtures/fix-c/fixture.yaml
+
+decisionPolicy:
+  mode: exploratory
+  minimumCompletedPairs: 1
+  minimumIndependentFixtures: 1
+  maximumInfrastructureFailureRate: 1
+  verifiedSuccessDeltaMin: 0
+  pairedImprovementPValueMax: 1
+  multipleComparisonMethod: none
+  treatmentCriticalSafetyMax: 0
+  treatmentStaleEvidenceAcceptedMax: 1
+  treatmentRecoveryRateMin: 0
+  treatmentFalseBlockRateMax: 1
+  telemetryCoverageMin: 0
+  treatmentToControlCostPerSuccessMaxRatio: 1
+  treatmentToControlMedianDurationMaxRatio: 10
+  treatmentToControlMedianTokensMaxRatio: 10

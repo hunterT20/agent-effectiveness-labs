@@ -1,0 +1,10 @@
+{
+  "totalCents": 0,
+  "count": 6,
+  "byCategory": {
+    "food": 2200,
+    "rent": 4000,
+    "refund": -200
+  },
+  "largestId": "t1"
+}

@@ -1,0 +1,58 @@
+{
+  "name": "@ael/cli",
+  "version": "0.0.0",
+  "description": "Agent Effectiveness Labs CLI (`ael`): plan, run, resume and report paired coding-agent experiments with hidden grading and fail-closed verdicts",
+  "keywords": [
+    "ael",
+    "agent-effectiveness-labs",
+    "cli",
+    "coding-agent",
+    "benchmark",
+    "evaluation",
+    "experiment",
+    "cursor-agent"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/hunterT20/agent-effectiveness-labs#readme",
+  "bugs": {
+    "url": "https://github.com/hunterT20/agent-effectiveness-labs/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hunterT20/agent-effectiveness-labs.git",
+    "directory": "packages/cli"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "ael": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "pnpm --dir ../.. exec vitest run --project unit packages/cli/test"
+  },
+  "dependencies": {
+    "@ael/core": "workspace:*",
+    "@ael/reporter": "workspace:*",
+    "@ael/runtime": "workspace:*",
+    "commander": "^13.1.0",
+    "yaml": "^2.7.0"
+  }
+}

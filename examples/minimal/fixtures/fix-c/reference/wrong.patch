@@ -1,0 +1,11 @@
+diff --git a/src/validate.mjs b/src/validate.mjs
+index 72ee3d3..d124ee1 100644
+--- a/src/validate.mjs
++++ b/src/validate.mjs
+@@ -11,5 +11,5 @@ export function isValidEmail(value) {
+     return false;
+   }
+   const [local, domain] = parts;
+-  return local.length > 0 && domain.length > 0;
++  return local.length > 0 && domain.length > 0 && domain.includes('.');
+ }

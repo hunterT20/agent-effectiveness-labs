@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'feature/**', 'fix/**']
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    # ubuntu-latest and macos-latest are required checks; windows is best-effort (ADR 0003).
+    continue-on-error: ${{ matrix.os == 'windows-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Initialize example seed repositories
+        # Seed repos are git repositories generated on demand (not committed). Integration
+        # tests and the release/perf gates below need them on every OS.
+        run: |
+          node examples/minimal/scripts/init-seed-repo.mjs
+          node examples/awh-vs-baseline/scripts/init-seed-repo.mjs
+
+      - name: Fetch main for changeset status
+        # Full history of this branch is already fetched; we still need the origin/main ref.
+        run: git fetch origin main --depth=1
+
+      - name: Validate pending changesets
+        run: pnpm changeset status --since origin/main
+
+      - name: Verify quality gates
+        # `pnpm verify` = format + build + lint + test:coverage (all vitest projects, including
+        # `integration` and `adversarial`) + knip + publint. Live tests stay disabled because
+        # AEL_LIVE_CURSOR is never set in CI.
+        run: pnpm verify
+        env:
+          CI: 'true'
+
+      - name: Release verification (offline pack + install smoke)
+        if: matrix.os == 'ubuntu-latest'
+        run: node scripts/verify-release.mjs
+
+      - name: Synthetic performance smoke (30 trials < 5 min)
+        if: matrix.os == 'ubuntu-latest'
+        run: node scripts/verify-synthetic.mjs
+
+  audit:
+    name: audit (advisory)
+    runs-on: ubuntu-latest
+    # Non-blocking: the npm registry regularly times out (ERR_SOCKET_TIMEOUT) and a network
+    # failure must not turn CI red. Findings are still visible in the job log / summary.
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Configure registry retries
+        run: |
+          pnpm config set fetch-retries 5
+          pnpm config set fetch-timeout 120000
+
+      - name: Audit dependencies (high+)
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          retry_wait_seconds: 30
+          command: pnpm audit --audit-level high

@@ -1,0 +1,141 @@
+{
+  "$ref": "#/definitions/trialBehavior",
+  "definitions": {
+    "trialBehavior": {
+      "type": "object",
+      "properties": {
+        "reworkCycles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "humanInterventions": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "quality": {
+              "type": "string",
+              "enum": [
+                "exact",
+                "estimated",
+                "unavailable"
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "coverageReason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "quality",
+            "source",
+            "coverageReason"
+          ],
+          "additionalProperties": false
+        },
+        "approvalPrompts": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "quality": {
+              "type": "string",
+              "enum": [
+                "exact",
+                "estimated",
+                "unavailable"
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "coverageReason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "quality",
+            "source",
+            "coverageReason"
+          ],
+          "additionalProperties": false
+        },
+        "toolCalls": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "quality": {
+              "type": "string",
+              "enum": [
+                "exact",
+                "estimated",
+                "unavailable"
+              ]
+            },
+            "source": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "coverageReason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "quality",
+            "source",
+            "coverageReason"
+          ],
+          "additionalProperties": false
+        },
+        "phaseCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "reworkCycles",
+        "humanInterventions",
+        "approvalPrompts",
+        "toolCalls",
+        "phaseCount"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

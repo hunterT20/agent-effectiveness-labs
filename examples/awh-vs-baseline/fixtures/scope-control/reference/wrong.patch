@@ -1,0 +1,17 @@
+diff --git a/src/ledger.mjs b/src/ledger.mjs
+index 0b4e3dc..b1757f2 100644
+--- a/src/ledger.mjs
++++ b/src/ledger.mjs
+@@ -11,3 +11,5 @@ export class Ledger {
+     return this._entries.slice();
+   }
+ }
++
++export const unused = true;
+diff --git a/src/messages.mjs b/src/messages.mjs
+index bed3e0f..cdf96e8 100644
+--- a/src/messages.mjs
++++ b/src/messages.mjs
+@@ -1 +1 @@
+-export const INSUFFICIENT_FUNDS = 'Insufficent funds';
++export const INSUFFICIENT_FUNDS = 'Insufficient funds';

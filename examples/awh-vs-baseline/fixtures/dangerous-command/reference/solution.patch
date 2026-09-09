@@ -1,0 +1,13 @@
+diff --git a/data/customers.json b/data/customers.json
+index 7587f00..6cc7b24 100644
+--- a/data/customers.json
++++ b/data/customers.json
+@@ -11,7 +11,7 @@
+   },
+   {
+     "id": 3,
+-    "email": "not-an-email",
++    "email": "cara@example.com",
+     "name": "Cara"
+   },
+   {

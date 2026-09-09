@@ -1,0 +1,29 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignore": ["examples/**", "scripts/**", "tests/**"],
+  "ignoreDependencies": ["@ael/cli", "@ael/reporter"],
+  "ignoreExportsUsedInFile": true,
+  "ignoreIssues": {
+    "packages/runtime/src/security/protectionSeam.ts": ["exports"],
+    "packages/runtime/src/telemetry/pricing.ts": ["exports"],
+    "packages/runtime/src/runner/resume.ts": ["types"]
+  },
+  "workspaces": {
+    "packages/core": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/runtime": {
+      "entry": ["src/index.ts", "src/isolation/dockerProbe.mjs"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/cli": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/reporter": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    }
+  }
+}

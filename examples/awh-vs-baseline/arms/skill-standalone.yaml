@@ -1,0 +1,7 @@
+schemaVersion: 1
+id: skill-standalone
+name: Standalone skill
+actions:
+  - type: environment
+    variables:
+      AEL_ARM: skill

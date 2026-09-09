@@ -1,0 +1,44 @@
+schemaVersion: 1
+id: artifact-only
+name: Emit transaction summary artifact
+category: artifact-only
+outcomeMode: artifact
+
+phases:
+  - id: initial
+    promptFile: ./prompts/initial.md
+    session: new
+
+limits:
+  timeoutMsPerPhase: 30000
+  maxChangedFiles: 4
+
+candidate:
+  allowedPaths:
+    - artifacts/**
+  forbiddenPaths:
+    - src/**
+    - grader/**
+  requiredArtifacts:
+    - id: final-report
+      source: agent-final
+      schema: ./schemas/final-report.schema.json
+
+grading:
+  deterministic:
+    - id: hidden-check
+      command: node
+      args: [./grader/check.mjs]
+      required: true
+  blindedRubric:
+    enabled: false
+    rubricFile: null
+    minimumRaters: 0
+    minimumAgreement: null
+  llmJudge:
+    role: disabled
+
+reference:
+  artifactDirectory: ./reference/artifacts
+  mutationCases:
+    - ./reference/wrong-artifacts

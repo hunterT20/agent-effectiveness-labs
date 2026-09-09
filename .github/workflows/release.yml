@@ -1,0 +1,98 @@
+name: Release
+
+# Triggered by pushing a semver tag (e.g. `v1.0.0`) created AFTER `pnpm changeset version`
+# has been merged to `main`. See docs/releasing.md for the full checklist.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write # create the GitHub release and attach the SBOM
+  id-token: write # npm provenance (Sigstore / SLSA attestation)
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: publish ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Initialize example seed repositories
+        run: |
+          node examples/minimal/scripts/init-seed-repo.mjs
+          node examples/awh-vs-baseline/scripts/init-seed-repo.mjs
+
+      - name: Check tag matches package version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./packages/cli/package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "tag v$TAG does not match @ael/cli version $PKG (run 'pnpm changeset version' first)" >&2
+            exit 1
+          fi
+          if [ -n "$(ls .changeset/*.md 2>/dev/null | grep -v README.md)" ]; then
+            echo "unconsumed changesets present; run 'pnpm changeset version' before tagging" >&2
+            exit 1
+          fi
+
+      - name: Verify quality gates
+        run: pnpm verify
+        env:
+          CI: 'true'
+
+      - name: Release verification (offline pack + install smoke)
+        run: node scripts/verify-release.mjs
+
+      - name: Generate SBOM (CycloneDX)
+        run: |
+          pnpm dlx @cyclonedx/cyclonedx-npm@2 \
+            --ignore-npm-errors \
+            --omit dev \
+            --output-format JSON \
+            --output-file sbom.cdx.json
+          node -e "JSON.parse(require('fs').readFileSync('sbom.cdx.json','utf8'))"
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ github.ref_name }}
+          path: sbom.cdx.json
+          if-no-files-found: error
+
+      - name: Publish to npm with provenance
+        run: pnpm changeset publish --no-git-tag
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
+
+      - name: Create GitHub release and attach SBOM
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: sbom.cdx.json
