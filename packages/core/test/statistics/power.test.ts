@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { POWER_READINESS_VERSION, assessPowerReadiness, estimateRequiredFixtureCount } from '@ael/core';
+import {
+  POWER_READINESS_VERSION,
+  assessPowerReadiness,
+  estimateRequiredFixtureCount,
+} from '@ael/core';
 
 describe('power readiness (paired binary sample size)', () => {
   it('matches the McNemar / Connor approximation for a moderate effect', () => {

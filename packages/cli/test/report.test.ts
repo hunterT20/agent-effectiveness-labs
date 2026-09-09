@@ -65,7 +65,11 @@ decisionPolicy:
   return suitePath;
 }
 
-function capture(): { stdout: string[]; stderr: string[]; context: { stdout: (m: string) => void; stderr: (m: string) => void } } {
+function capture(): {
+  stdout: string[];
+  stderr: string[];
+  context: { stdout: (m: string) => void; stderr: (m: string) => void };
+} {
   const stdout: string[] = [];
   const stderr: string[] = [];
   return {
@@ -114,9 +118,9 @@ describe('reportCommand', () => {
       ties: 2,
     });
     expect(reportRaw.statistics.powerReadiness.lowPower).toBe(true);
-    expect(reportRaw.gates.some((gate) => gate.id === 'LOW_POWER' && gate.status === 'warning')).toBe(
-      true,
-    );
+    expect(
+      reportRaw.gates.some((gate) => gate.id === 'LOW_POWER' && gate.status === 'warning'),
+    ).toBe(true);
     expect(reportRaw.gates.every((gate) => Array.isArray(gate.evidencePaths))).toBe(true);
     expect(existsSync(join(root, 'report', 'report.md'))).toBe(true);
     expect(readFileSync(join(root, 'report', 'report.md'), 'utf8')).toContain('**LOW_POWER**');

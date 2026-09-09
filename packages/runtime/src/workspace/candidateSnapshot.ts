@@ -152,9 +152,10 @@ export async function captureCandidateSnapshot(
 
   const changedFiles: CandidateSnapshot['changedFiles'] = [
     ...trackedChanges,
-    ...untracked.manifest.files.map(
-      (file): CandidateFileEntry => ({ path: file.path, changeType: 'added' }),
-    ),
+    ...untracked.manifest.files.map((file): CandidateFileEntry => ({
+      path: file.path,
+      changeType: 'added',
+    })),
   ];
 
   const scope: ScopeEvaluation = evaluateScopePolicy({

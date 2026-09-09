@@ -15,7 +15,10 @@ import type {
   TrialPlanEntry,
 } from '@ael/core';
 
-import { createCustomCommandAdapter, FAKE_AGENT_ADAPTER_ID } from '../../src/adapters/customCommand.js';
+import {
+  createCustomCommandAdapter,
+  FAKE_AGENT_ADAPTER_ID,
+} from '../../src/adapters/customCommand.js';
 import { DirectoryOnlyIsolationProvider } from '../../src/isolation/directoryOnly.js';
 import { runTrial } from '../../src/runner/trialRunner.js';
 import { createTempSeedRepo } from '../helpers/tempSeedRepo.js';
@@ -211,7 +214,10 @@ describe('runTrial', () => {
     expect(result.status).toBe('completed');
     expect(result.gradeStatus).toBe('verified_success');
     const materialization = JSON.parse(
-      readFileSync(join(experimentRoot, 'trials', 'trial-1', 'attempt-1', 'arm-materialization.json'), 'utf8'),
+      readFileSync(
+        join(experimentRoot, 'trials', 'trial-1', 'attempt-1', 'arm-materialization.json'),
+        'utf8',
+      ),
     ) as { environment: Record<string, string>; argvAdditions: string[]; pluginDirs: string[] };
     expect(materialization.environment.AEL_ARM_MARKER).toBe('baseline');
     expect(materialization.argvAdditions).toEqual(['--hint', 'x']);
@@ -247,8 +253,18 @@ describe('runTrial', () => {
         Promise.resolve({
           inputTokens: { value: null, quality: 'unavailable', source: 'x', coverageReason: 'x' },
           outputTokens: { value: null, quality: 'unavailable', source: 'x', coverageReason: 'x' },
-          cachedInputTokens: { value: null, quality: 'unavailable', source: 'x', coverageReason: 'x' },
-          reasoningTokens: { value: null, quality: 'unavailable', source: 'x', coverageReason: 'x' },
+          cachedInputTokens: {
+            value: null,
+            quality: 'unavailable',
+            source: 'x',
+            coverageReason: 'x',
+          },
+          reasoningTokens: {
+            value: null,
+            quality: 'unavailable',
+            source: 'x',
+            coverageReason: 'x',
+          },
           subagentTokens: { value: null, quality: 'unavailable', source: 'x', coverageReason: 'x' },
           toolCalls: { value: null, quality: 'unavailable', source: 'x', coverageReason: 'x' },
         }),

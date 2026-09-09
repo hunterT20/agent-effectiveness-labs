@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -158,29 +158,47 @@ export function createProgram(): Command {
     .argument('<experiment-root>')
     .requiredOption('--suite <suite.yaml>')
     .option('--fail-on-verdict')
-    .action((experimentRoot: string, options: { suite: string; failOnVerdict?: boolean }) => {
-      process.exitCode = reportCommand(
-        experimentRoot,
-        options.suite,
-        context,
-        options.failOnVerdict === true,
-      );
-    });
+    .option('--format <formats>', 'comma-separated: json,md,csv,html', 'json,md,csv,html')
+    .action(
+      async (
+        experimentRoot: string,
+        options: { suite: string; failOnVerdict?: boolean; format?: string },
+      ) => {
+        const formats = (options.format ?? 'json,md,csv,html')
+          .split(',')
+          .map((entry) => entry.trim())
+          .filter(
+            (entry): entry is 'json' | 'md' | 'csv' | 'html' =>
+              entry === 'json' || entry === 'md' || entry === 'csv' || entry === 'html',
+          );
+        process.exitCode = await reportCommand(
+          experimentRoot,
+          options.suite,
+          context,
+          options.failOnVerdict === true,
+          { formats },
+        );
+      },
+    );
 
   const gradeCmd = program.command('grade');
   gradeCmd
     .command('export')
     .argument('<experiment-root>')
     .requiredOption('--out <directory>')
+    .requiredOption('--suite <suite.yaml>')
     .option('--seed <seed>')
-    .action(async (experimentRoot: string, options: { out: string; seed?: string }) => {
-      process.exitCode = await gradeExportCommand(
-        experimentRoot,
-        options.out,
-        context,
-        options.seed,
-      );
-    });
+    .action(
+      async (experimentRoot: string, options: { out: string; suite: string; seed?: string }) => {
+        process.exitCode = await gradeExportCommand(
+          experimentRoot,
+          options.out,
+          context,
+          options.seed,
+          options.suite,
+        );
+      },
+    );
   gradeCmd
     .command('import')
     .argument('<experiment-root>')
@@ -214,7 +232,11 @@ function isDirectExecution(): boolean {
     return false;
   }
 
-  return import.meta.url === pathToFileURL(entry).href;
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(entry);
+  } catch {
+    return import.meta.url === pathToFileURL(entry).href;
+  }
 }
 
 if (isDirectExecution()) {

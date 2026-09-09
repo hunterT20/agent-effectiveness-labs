@@ -273,9 +273,7 @@ export function deriveVerdict(gates: readonly GateResult[]): ExperimentVerdict {
 }
 
 /** Capability names from `suite.isolation.require` whose value is `true`. */
-export function requiredCapabilityNames(
-  require: SuiteDocument['isolation']['require'],
-): string[] {
+export function requiredCapabilityNames(require: SuiteDocument['isolation']['require']): string[] {
   return ISOLATION_REQUIRE_KEYS.filter((name) => require[name] === true)
     .slice()
     .sort();
@@ -286,9 +284,7 @@ export function unmetRequiredCapabilities(
   require: SuiteDocument['isolation']['require'],
   observed: IsolationCapabilities,
 ): string[] {
-  return ISOLATION_REQUIRE_KEYS.filter(
-    (name) => require[name] === true && !observed[name],
-  )
+  return ISOLATION_REQUIRE_KEYS.filter((name) => require[name] === true && !observed[name])
     .slice()
     .sort();
 }

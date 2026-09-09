@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -84,9 +84,10 @@ describe('loadSuiteManifest', () => {
 
     const loaded = loadSuiteManifest(suitePath);
 
-    expect(loaded.references.arms[0]?.sourcePath).toBe(join(root, 'arms/baseline.yaml'));
+    const realRoot = realpathSync(root);
+    expect(loaded.references.arms[0]?.sourcePath).toBe(join(realRoot, 'arms/baseline.yaml'));
     expect(loaded.references.fixtures[0]?.sourcePath).toBe(
-      join(root, 'fixtures/recover-after-failed-test/fixture.yaml'),
+      join(realRoot, 'fixtures/recover-after-failed-test/fixture.yaml'),
     );
   });
 });

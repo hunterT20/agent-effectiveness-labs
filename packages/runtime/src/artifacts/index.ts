@@ -22,10 +22,8 @@ export { createRunKeySourceFromEnv, createRunKeySourceFromHex } from './runKey.j
 export {
   collectExperimentResults,
   collectedTrialToMetric,
-  AttemptStateSchema,
   BlindedAgreementFileSchema,
   DoctorArtifactSchema,
-  type AttemptState,
   type BlindedAgreementFile,
   type CollectedDoctorEvidence,
   type CollectedTrialResult,

@@ -35,10 +35,7 @@ function extensionFor(format: ReportFormat): string {
   return format === 'md' ? 'md' : format;
 }
 
-function renderFormat(
-  format: ReportFormat,
-  report: ReturnType<typeof buildReportSource>,
-): string {
+function renderFormat(format: ReportFormat, report: ReturnType<typeof buildReportSource>): string {
   switch (format) {
     case 'json':
       return serializeReportJson(report);
@@ -68,8 +65,7 @@ export async function reportCommand(
     const suite = loaded.normalizedValue;
     const collected = await collectExperimentResults(outputRoot);
 
-    const controlArm =
-      collected.preregistration?.primaryControlArm ?? suite.primaryControlArm;
+    const controlArm = collected.preregistration?.primaryControlArm ?? suite.primaryControlArm;
     const treatmentArm =
       collected.preregistration?.primaryTreatmentArm ?? suite.primaryTreatmentArm;
     const secondaryTreatmentArms = collected.trialPlan.comparisons.secondary.map(
@@ -160,7 +156,18 @@ export async function reportCommand(
     }
     return EXIT_OK;
   } catch (error) {
-    context.stderr(error instanceof Error ? error.message : 'report failed');
+    context.stderr(formatReportError(error));
     return EXIT_RUNTIME;
   }
+}
+
+function formatReportError(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return 'report failed';
+  }
+  const cause = error.cause;
+  if (cause instanceof Error && cause.message.length > 0 && cause.message !== error.message) {
+    return `${error.message}: ${cause.message}`;
+  }
+  return error.message;
 }

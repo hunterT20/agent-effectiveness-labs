@@ -1,4 +1,9 @@
-export { runHiddenGrader, parseGraderResultLine, GRADER_RESULT_PREFIX, type RunHiddenGraderInput } from './hiddenGrader.js';
+export {
+  runHiddenGrader,
+  parseGraderResultLine,
+  GRADER_RESULT_PREFIX,
+  type RunHiddenGraderInput,
+} from './hiddenGrader.js';
 export {
   DEFAULT_MINIMUM_RATERS_PER_PACKET,
   PROTECTED_PATCH_PLACEHOLDER,

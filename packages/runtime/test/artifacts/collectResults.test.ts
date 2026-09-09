@@ -31,7 +31,8 @@ describe('collectExperimentResults', () => {
     expect(collected.doctor).toBeNull();
 
     const retried = collected.trials.find(
-      (trial) => trial.fixtureId === 'bug-fix' && trial.armId === 'baseline' && trial.repeatIndex === 0,
+      (trial) =>
+        trial.fixtureId === 'bug-fix' && trial.armId === 'baseline' && trial.repeatIndex === 0,
     );
     expect(retried?.attemptIndex).toBe(1);
     expect(retried?.status).toBe('completed');
@@ -91,6 +92,44 @@ describe('collectExperimentResults', () => {
     });
     expect(collected.doctor?.evidencePath).toBe('doctor.json');
     expect(collected.doctor?.observedCapabilities.level).toBe('directory-only');
+  });
+
+  it('accepts candidate-snapshot extras written by the trial runner', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'ael-collect-snapshot-'));
+    const plan = writeSyntheticExperiment(root);
+    const entry = plan.trials.find(
+      (trial) =>
+        trial.fixtureId === 'bug-fix' && trial.armId === 'treatment' && trial.repeatIndex === 0,
+    );
+    if (entry === undefined) {
+      throw new Error('expected bug-fix/treatment/0 in the synthetic plan');
+    }
+    const trialId = `trial-${entry.fixtureId}-${entry.armId}-${String(entry.repeatIndex)}`;
+    const attemptId = computeAttemptId({ trialId, attemptIndex: 0 });
+    writeJson(join(root, 'attempts', trialId, attemptId, 'candidate-snapshot.json'), {
+      schemaVersion: 1,
+      baseFingerprint: 'a'.repeat(64),
+      finalFingerprint: 'b'.repeat(64),
+      patchSha256: 'c'.repeat(64),
+      fileManifestSha256: 'd'.repeat(64),
+      changedFiles: [{ path: 'src/a.ts', changeType: 'modified' }],
+      patchArtifact: 'artifacts/candidate.patch',
+      untrackedArchiveArtifact: null,
+      overlayIntegrity: 'unchanged',
+      protectedPatchRef: null,
+      protectedUntrackedRef: null,
+      overlayPaths: ['.cursor/rules.md'],
+      scope: { inScope: true, violations: [] },
+      candidateInvalidReason: null,
+    });
+
+    const collected = await collectExperimentResults(root);
+    const trial = collected.trials.find(
+      (item) =>
+        item.fixtureId === 'bug-fix' && item.armId === 'treatment' && item.repeatIndex === 0,
+    );
+    expect(trial?.snapshot?.overlayIntegrity).toBe('unchanged');
+    expect(trial?.snapshot?.changedFiles).toEqual([{ path: 'src/a.ts', changeType: 'modified' }]);
   });
 
   it('records unresolved attempts when planEntry is missing', async () => {

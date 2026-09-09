@@ -6,7 +6,6 @@ import {
   GradeReportSchema,
   IsolationCapabilitiesSchema,
   PreregistrationSchema,
-  TrialPlanEntrySchema,
   TrialPlanSchema,
   TrialStatusSchema,
   TrialTelemetrySchema,
@@ -30,6 +29,14 @@ import { z } from 'zod';
 import { readAtomicJson } from './atomicWrite.js';
 import { ARTIFACT_ERROR_CODES, ArtifactError } from './errors.js';
 import { resolveArtifactPath } from './paths.js';
+import { AttemptStateSchema, type AttemptState } from './schemas.js';
+
+/**
+ * Trial runner persists {@link PublicCandidateSnapshot} extras (overlay paths, protected blob
+ * refs, scope). The public {@link CandidateSnapshotSchema} is `.strict()`, so collection must
+ * accept unknown keys rather than fail-closed on a valid run.
+ */
+const PersistedCandidateSnapshotSchema = CandidateSnapshotSchema.passthrough();
 
 const MAX_ATTEMPT_INDEX = 64;
 
@@ -42,21 +49,6 @@ const TELEMETRY_METRIC_KEYS = [
   'toolCalls',
   'estimatedCostUsd',
 ] as const;
-
-export const AttemptStateSchema = z
-  .object({
-    schemaVersion: z.literal(1),
-    trialId: z.string().min(1),
-    attemptId: z.string().min(1),
-    status: TrialStatusSchema,
-    planEntry: TrialPlanEntrySchema.optional(),
-    durationMs: z.number().finite().nullable().optional(),
-    startedAt: z.string().min(1).optional(),
-    endedAt: z.string().min(1).optional(),
-  })
-  .passthrough();
-
-export type AttemptState = z.infer<typeof AttemptStateSchema>;
 
 export const BlindedAgreementFileSchema = z
   .object({
@@ -83,7 +75,7 @@ export const DoctorArtifactSchema = z
     supported: z.boolean().optional(),
     messages: z.array(z.string()).optional(),
   })
-  .strict();
+  .passthrough();
 
 export type DoctorArtifact = z.infer<typeof DoctorArtifactSchema>;
 
@@ -281,7 +273,9 @@ function accumulateCoverage(
   coverage.exact += 1;
 }
 
-function telemetryCoverageForTrials(trials: readonly CollectedTrialResult[]): TelemetryCoverageSummary {
+function telemetryCoverageForTrials(
+  trials: readonly CollectedTrialResult[],
+): TelemetryCoverageSummary {
   const coverage = { exact: 0, estimated: 0, unavailable: 0, total: 0 };
   for (const trial of trials) {
     if (trial.telemetry === null) {
@@ -316,7 +310,9 @@ export function collectedTrialToMetric(trial: CollectedTrialResult): TrialMetric
  * the sealed trial plan via planEntry, and attach optional grade, telemetry, snapshot,
  * agreement, and doctor artifacts.
  */
-export async function collectExperimentResults(experimentRoot: string): Promise<ExperimentResultSet> {
+export async function collectExperimentResults(
+  experimentRoot: string,
+): Promise<ExperimentResultSet> {
   const resolvedRoot = resolveArtifactPath(experimentRoot, '.');
   const planPath = resolveArtifactPath(resolvedRoot, 'trial-plan.json');
   if (!(await pathExists(planPath))) {
@@ -367,6 +363,17 @@ export async function collectExperimentResults(experimentRoot: string): Promise<
       continue;
     }
 
+    const statusParsed = TrialStatusSchema.safeParse(latest.state.status);
+    if (!statusParsed.success) {
+      unresolvedAttempts.push({
+        trialId,
+        attemptId: latest.state.attemptId,
+        relativeStatePath: latest.relativeStatePath,
+        reason: 'state.json has an unknown trial status',
+      });
+      continue;
+    }
+
     const attemptDir = resolveArtifactPath(
       resolvedRoot,
       join('attempts', trialId, latest.state.attemptId),
@@ -377,7 +384,7 @@ export async function collectExperimentResults(experimentRoot: string): Promise<
 
     const grade = await readOptionalJson(gradePath, GradeReportSchema);
     const telemetry = await readOptionalJson(telemetryPath, TrialTelemetrySchema);
-    const snapshot = await readOptionalJson(snapshotPath, CandidateSnapshotSchema);
+    const snapshot = await readOptionalJson(snapshotPath, PersistedCandidateSnapshotSchema);
     const safety = safetyFromGrade(grade);
     const gradeStatus: GradeStatus = grade?.status ?? 'not_graded';
     const planned = trialPlan.trials.find(
@@ -396,10 +403,10 @@ export async function collectExperimentResults(experimentRoot: string): Promise<
       repeatIndex: planEntry.repeatIndex,
       blockIndex: planned?.blockIndex ?? planEntry.blockIndex,
       trialIndex: planned?.trialIndex ?? planEntry.trialIndex,
-      status: latest.state.status,
+      status: statusParsed.data,
       gradeStatus,
       verifiedSuccess: gradeStatus === 'verified_success',
-      infrastructureFailed: latest.state.status === 'infrastructure_failed',
+      infrastructureFailed: statusParsed.data === 'infrastructure_failed',
       durationMs: durationFromState(latest.state),
       telemetry,
       costUsd: telemetry?.estimatedCostUsd.value ?? null,

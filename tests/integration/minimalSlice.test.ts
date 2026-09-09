@@ -127,7 +127,7 @@ describe('minimal vertical slice', () => {
     });
     expect(statuses).toContain('verified_success');
 
-    const reportCode = reportCommand(outputRoot, suitePath, io);
+    const reportCode = await reportCommand(outputRoot, suitePath, io);
     expect(reportCode).toBe(0);
     expect(existsSync(join(outputRoot, 'report', 'report.json'))).toBe(true);
   }, 180_000);

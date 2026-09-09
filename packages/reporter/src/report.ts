@@ -64,7 +64,9 @@ export function renderReportMarkdown(report: ReportSource): string {
   );
 
   for (const gate of report.gates) {
-    lines.push(`- ${gate.id}: ${gate.status} (${gate.message}) ${formatEvidence(gate.evidencePaths)}`);
+    lines.push(
+      `- ${gate.id}: ${gate.status} (${gate.message}) ${formatEvidence(gate.evidencePaths)}`,
+    );
   }
 
   const bootstrap = report.statistics.bootstrap;
@@ -84,7 +86,13 @@ export function renderReportMarkdown(report: ReportSource): string {
 
   const holm = report.statistics.holm;
   if (holm !== undefined && holm !== null) {
-    lines.push('', '## Holm correction', '', `- Version: ${holm.version}`, `- Alpha: ${String(holm.alpha)}`);
+    lines.push(
+      '',
+      '## Holm correction',
+      '',
+      `- Version: ${holm.version}`,
+      `- Alpha: ${String(holm.alpha)}`,
+    );
     for (const comparison of holm.comparisons) {
       lines.push(
         `- ${comparison.id}: raw=${String(comparison.rawPValue)} adjusted=${String(comparison.adjustedPValue)} significant=${String(comparison.significant)}`,
@@ -159,9 +167,7 @@ export function renderReportMarkdown(report: ReportSource): string {
   if (pairs !== undefined && pairs.length > 0) {
     lines.push('', '## Pairs', '');
     for (const pair of pairs) {
-      lines.push(
-        `- ${pair.fixtureId} r${String(pair.repeatIndex)}: ${pair.outcome}`,
-      );
+      lines.push(`- ${pair.fixtureId} r${String(pair.repeatIndex)}: ${pair.outcome}`);
     }
   }
 
@@ -241,14 +247,13 @@ export function renderReportHtml(report: ReportSource): string {
     )
     .join('');
 
-  const lowPowerBanner =
-    report.gates.some(
-      (gate) =>
-        gate.id === GATE_IDS.LOW_POWER &&
-        (gate.status === 'warning' || gate.status === 'insufficient_data'),
-    )
-      ? '<p><strong>LOW_POWER</strong></p>'
-      : '';
+  const lowPowerBanner = report.gates.some(
+    (gate) =>
+      gate.id === GATE_IDS.LOW_POWER &&
+      (gate.status === 'warning' || gate.status === 'insufficient_data'),
+  )
+    ? '<p><strong>LOW_POWER</strong></p>'
+    : '';
 
   return `<!DOCTYPE html>
 <html lang="en">

@@ -14,7 +14,7 @@
       "project": ["src/**/*.ts"]
     },
     "packages/runtime": {
-      "entry": ["src/index.ts"],
+      "entry": ["src/index.ts", "src/isolation/dockerProbe.mjs"],
       "project": ["src/**/*.ts"]
     },
     "packages/cli": {

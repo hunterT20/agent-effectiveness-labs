@@ -23,7 +23,9 @@ import {
 
 import { AttemptStore } from '../artifacts/attempts.js';
 import { readAtomicJson, writeAtomicJson } from '../artifacts/atomicWrite.js';
+import { ProtectedBlobStore } from '../artifacts/encryption.js';
 import { ExperimentLock } from '../artifacts/experimentLock.js';
+import { createRunKeySourceFromEnv } from '../artifacts/runKey.js';
 import type { AttemptState } from '../artifacts/schemas.js';
 import {
   pricingFingerprintForSuite,
@@ -49,6 +51,20 @@ import { runTrial } from './trialRunner.js';
 
 export const RUN_SUMMARY_FILENAME = 'run-summary.json';
 
+function resolveProtectedBlobStore(
+  experimentRoot: string,
+  override?: ProtectedBlobStore,
+): ProtectedBlobStore | undefined {
+  if (override !== undefined) {
+    return override;
+  }
+  const keyFile = process.env.AEL_RUN_KEY_FILE;
+  if (keyFile === undefined || keyFile.length === 0) {
+    return undefined;
+  }
+  return new ProtectedBlobStore(experimentRoot, createRunKeySourceFromEnv());
+}
+
 /** Extra attempt indices probed when mapping legacy attempt directories back to their index. */
 const ATTEMPT_INDEX_SCAN_SLACK = 16;
 
@@ -73,6 +89,8 @@ export interface ExperimentRunnerInput {
   readonly concurrency?: number;
   /** Injectable trial runner (tests); defaults to `runTrial`. */
   readonly trialRunner?: typeof runTrial;
+  /** Optional protected blob store; when omitted, created from `AEL_RUN_KEY_FILE` if set. */
+  readonly protectedBlobStore?: import('../artifacts/encryption.js').ProtectedBlobStore;
   /** Invoked once on the first interrupt (Ctrl+C). */
   readonly onInterrupt?: () => void;
   /**
@@ -247,6 +265,10 @@ export async function runExperiment(input: ExperimentRunnerInput): Promise<Exper
   const summaryPath = join(input.experimentRoot, RUN_SUMMARY_FILENAME);
   const trialRunner = input.trialRunner ?? runTrial;
   const store = new AttemptStore(input.experimentRoot);
+  const protectedBlobStore = resolveProtectedBlobStore(
+    input.experimentRoot,
+    input.protectedBlobStore,
+  );
   const maxInfraRetries = input.maxInfraRetries ?? 2;
   const concurrency = Math.max(
     1,
@@ -388,6 +410,7 @@ export async function runExperiment(input: ExperimentRunnerInput): Promise<Exper
       pricingSnapshot,
       cancellationToken: cancellation,
       ...(resumeFromStatus !== undefined ? { resumeFromStatus } : {}),
+      ...(protectedBlobStore !== undefined ? { protectedBlobStore } : {}),
     });
 
     // Merge provenance into the trial runner's final checkpoint without dropping its fields.
@@ -399,6 +422,7 @@ export async function runExperiment(input: ExperimentRunnerInput): Promise<Exper
       attemptId,
       attemptIndex,
       status: trialResult.status,
+      planEntry: entry,
       ...currentFingerprints,
     }).catch(() => undefined);
 

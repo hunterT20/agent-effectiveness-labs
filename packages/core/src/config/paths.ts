@@ -22,7 +22,12 @@ function assertPathContained(
 }
 
 export function resolveContainedPath(manifestDir: string, relativePath: string): string {
-  const resolvedManifestDir = resolve(manifestDir);
+  let resolvedManifestDir = resolve(manifestDir);
+  try {
+    resolvedManifestDir = realpathSync(resolvedManifestDir);
+  } catch {
+    // Manifest directory may not exist yet (unit tests); keep the lexical path.
+  }
   const resolvedPath = resolve(resolvedManifestDir, relativePath);
 
   assertPathContained(
@@ -61,5 +66,10 @@ export function resolveContainedPath(manifestDir: string, relativePath: string):
 }
 
 export function manifestDirectory(manifestPath: string): string {
-  return resolve(dirname(manifestPath));
+  const dir = resolve(dirname(manifestPath));
+  try {
+    return realpathSync(dir);
+  } catch {
+    return dir;
+  }
 }

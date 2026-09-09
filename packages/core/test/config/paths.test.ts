@@ -1,10 +1,10 @@
-import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { ConfigLoadError, resolveContainedPath } from '@ael/core';
+import { ConfigLoadError, manifestDirectory, resolveContainedPath } from '@ael/core';
 
 describe('resolveContainedPath', () => {
   it('resolves a relative path within the manifest directory', () => {
@@ -14,7 +14,7 @@ describe('resolveContainedPath', () => {
 
     const resolved = resolveContainedPath(manifestDir, './arms/baseline.yaml');
 
-    expect(resolved).toBe(join(manifestDir, 'arms/baseline.yaml'));
+    expect(resolved).toBe(join(realpathSync(manifestDir), 'arms/baseline.yaml'));
   });
 
   it('rejects path escape outside the manifest directory', () => {
@@ -41,5 +41,12 @@ describe('resolveContainedPath', () => {
 
     expect(() => resolveContainedPath(manifestDir, './link.yaml')).toThrow(ConfigLoadError);
     expect(() => resolveContainedPath(manifestDir, './link.yaml')).toThrow(/symlink escape/i);
+  });
+
+  it('realpaths the manifest directory so /var and /private/var match on macOS', () => {
+    const root = mkdtempSync(join(tmpdir(), 'ael-path-'));
+    const manifestDir = join(root, 'suite');
+    mkdirSync(manifestDir, { recursive: true });
+    expect(manifestDirectory(join(manifestDir, 'suite.yaml'))).toBe(realpathSync(manifestDir));
   });
 });

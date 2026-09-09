@@ -334,8 +334,8 @@ function applyMultipleComparison(
       comparisons: comparisons.map((entry) => ({
         ...entry,
         adjustedPValue:
-          holm.comparisons.find((adjusted) => adjusted.id === entry.treatmentArm)
-            ?.adjustedPValue ?? null,
+          holm.comparisons.find((adjusted) => adjusted.id === entry.treatmentArm)?.adjustedPValue ??
+          null,
       })),
     };
   }

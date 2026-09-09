@@ -55,9 +55,7 @@ async function runGit(cwd: string, args: readonly string[]): Promise<string> {
   });
 }
 
-export async function createTempSeedRepo(
-  options: TempSeedRepoOptions = {},
-): Promise<TempSeedRepo> {
+export async function createTempSeedRepo(options: TempSeedRepoOptions = {}): Promise<TempSeedRepo> {
   const repoPath = options.directory ?? mkdtempSync(join(tmpdir(), 'ael-seed-'));
   mkdirSync(repoPath, { recursive: true });
   const files = options.files ?? DEFAULT_FILES;

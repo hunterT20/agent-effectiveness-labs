@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { TrialPlanEntrySchema } from '@ael/core';
+
 export const PROTECTED_BLOB_ENVELOPE_VERSION = 1 as const;
 
 export const StaleLockRecoverySchema = z
@@ -45,6 +47,10 @@ export const AttemptStateSchema = z
     agentFingerprint: z.string().optional(),
     isolationFingerprint: z.string().optional(),
     pricingFingerprint: z.string().optional(),
+    planEntry: TrialPlanEntrySchema.optional(),
+    durationMs: z.number().finite().nullable().optional(),
+    startedAt: z.string().min(1).optional(),
+    endedAt: z.string().min(1).optional(),
   })
   .passthrough();
 

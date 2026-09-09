@@ -41,13 +41,33 @@ function grade(status: GradeStatus, safetyIncidents = 0): GradeReport {
 function telemetry(durationHint: number): TrialTelemetry {
   return {
     schemaVersion: 1,
-    inputTokens: { value: durationHint, quality: 'exact', source: 'synthetic', coverageReason: null },
+    inputTokens: {
+      value: durationHint,
+      quality: 'exact',
+      source: 'synthetic',
+      coverageReason: null,
+    },
     outputTokens: { value: 2, quality: 'exact', source: 'synthetic', coverageReason: null },
     cachedInputTokens: { value: 0, quality: 'exact', source: 'synthetic', coverageReason: null },
-    reasoningTokens: { value: null, quality: 'unavailable', source: null, coverageReason: 'synthetic' },
-    subagentTokens: { value: null, quality: 'unavailable', source: null, coverageReason: 'synthetic' },
+    reasoningTokens: {
+      value: null,
+      quality: 'unavailable',
+      source: null,
+      coverageReason: 'synthetic',
+    },
+    subagentTokens: {
+      value: null,
+      quality: 'unavailable',
+      source: null,
+      coverageReason: 'synthetic',
+    },
     toolCalls: { value: 1, quality: 'estimated', source: 'synthetic', coverageReason: null },
-    estimatedCostUsd: { value: 0.01, quality: 'estimated', source: 'pricing', coverageReason: null },
+    estimatedCostUsd: {
+      value: 0.01,
+      quality: 'estimated',
+      source: 'pricing',
+      coverageReason: null,
+    },
     phaseCount: 1,
     rawArtifactPath: null,
   };
@@ -70,19 +90,37 @@ function outcomes(): Map<string, Outcome> {
       'bug-fix:baseline:0',
       { status: 'completed', gradeStatus: 'incorrect', durationMs: 100, extraAttempts: 1 },
     ],
-    ['bug-fix:treatment:0', { status: 'completed', gradeStatus: 'verified_success', durationMs: 110 }],
-    ['bug-fix:baseline:1', { status: 'completed', gradeStatus: 'verified_success', durationMs: 120 }],
-    ['bug-fix:treatment:1', { status: 'completed', gradeStatus: 'verified_success', durationMs: 130 }],
+    [
+      'bug-fix:treatment:0',
+      { status: 'completed', gradeStatus: 'verified_success', durationMs: 110 },
+    ],
+    [
+      'bug-fix:baseline:1',
+      { status: 'completed', gradeStatus: 'verified_success', durationMs: 120 },
+    ],
+    [
+      'bug-fix:treatment:1',
+      { status: 'completed', gradeStatus: 'verified_success', durationMs: 130 },
+    ],
     [
       'regression:baseline:0',
       { status: 'infrastructure_failed', gradeStatus: 'not_graded', durationMs: null },
     ],
-    ['regression:treatment:0', { status: 'completed', gradeStatus: 'verified_success', durationMs: 150 }],
+    [
+      'regression:treatment:0',
+      { status: 'completed', gradeStatus: 'verified_success', durationMs: 150 },
+    ],
     ['regression:baseline:1', { status: 'completed', gradeStatus: 'incorrect', durationMs: 160 }],
     ['regression:treatment:1', { status: 'completed', gradeStatus: 'incorrect', durationMs: 170 }],
     ['claims-done:baseline:0', { status: 'completed', gradeStatus: 'incorrect', durationMs: 180 }],
-    ['claims-done:treatment:0', { status: 'completed', gradeStatus: 'verified_success', durationMs: 190 }],
-    ['claims-done:baseline:1', { status: 'completed', gradeStatus: 'verified_success', durationMs: 200 }],
+    [
+      'claims-done:treatment:0',
+      { status: 'completed', gradeStatus: 'verified_success', durationMs: 190 },
+    ],
+    [
+      'claims-done:baseline:1',
+      { status: 'completed', gradeStatus: 'verified_success', durationMs: 200 },
+    ],
   ]);
 }
 

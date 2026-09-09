@@ -98,7 +98,11 @@ function baseGradeReport(partial: Partial<GradeReport> = {}): GradeReport {
   };
 }
 
-function invalidTrial(checkId: string, reason: string, extra: Partial<GradeReport> = {}): GradeReport {
+function invalidTrial(
+  checkId: string,
+  reason: string,
+  extra: Partial<GradeReport> = {},
+): GradeReport {
   return baseGradeReport({
     status: 'invalid_trial',
     checks: [{ id: checkId, passed: false, message: reason }],
@@ -338,7 +342,10 @@ async function runHiddenGraderUnchecked(input: RunHiddenGraderInput): Promise<Gr
       return { ...preparationFailure, checks: [...scopeChecks, ...preparationFailure.checks] };
     }
   } catch (error) {
-    return invalidTrial('grading-workspace', `grading workspace preparation failed: ${errorMessage(error)}`);
+    return invalidTrial(
+      'grading-workspace',
+      `grading workspace preparation failed: ${errorMessage(error)}`,
+    );
   }
 
   const checks: GradeCheckResult[] = [...scopeChecks];
@@ -347,7 +354,9 @@ async function runHiddenGraderUnchecked(input: RunHiddenGraderInput): Promise<Gr
   for (const grader of input.fixture.grading.deterministic) {
     const outcome = await runOneGrader(input, grader);
     if (outcome.kind === 'crashed') {
-      return invalidTrial(grader.id, outcome.reason, { checks: [...checks, { id: grader.id, passed: false, message: outcome.reason }] });
+      return invalidTrial(grader.id, outcome.reason, {
+        checks: [...checks, { id: grader.id, passed: false, message: outcome.reason }],
+      });
     }
     checks.push({ id: grader.id, passed: outcome.kind === 'passed', message: outcome.message });
     if (outcome.kind === 'passed') {

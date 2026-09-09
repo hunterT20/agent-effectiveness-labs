@@ -7,10 +7,9 @@ import {
   buildTrialPlan,
   computeFingerprint,
   ConfigValidationError,
-  deriveVerdict,
-  evaluateGates,
   fingerprintRecord,
   loadSuiteManifest,
+  unmetRequiredCapabilities,
   parseArmDocument,
   parseFixtureDocument,
   PreregistrationSchema,
@@ -29,13 +28,6 @@ import {
   type TrialStatus,
 } from '@ael/core';
 import {
-  buildReportSource,
-  renderReportMarkdown,
-  renderReportCsv,
-  renderReportHtml,
-  serializeReportJson,
-} from '@ael/reporter';
-import {
   AgentCliSandboxIsolationProvider,
   ContainerIsolationProvider,
   DirectoryOnlyIsolationProvider,
@@ -52,13 +44,7 @@ import {
   summarizeTelemetryCoverage,
 } from '@ael/runtime';
 
-import {
-  EXIT_CAPABILITY,
-  EXIT_CONFIG,
-  EXIT_OK,
-  EXIT_RUNTIME,
-  EXIT_VERDICT_FAIL,
-} from '../exitCodes.js';
+import { EXIT_CAPABILITY, EXIT_CONFIG, EXIT_OK, EXIT_RUNTIME } from '../exitCodes.js';
 
 export interface CommandContext {
   readonly stdout: (message: string) => void;
@@ -402,8 +388,8 @@ export async function fixtureSelfTestCommand(
   try {
     const fixture = parseFixtureDocument(readYamlFile(fixturePath), fixturePath);
     const fixtureRoot = dirname(fixturePath);
-    const examplesRoot = join(fixtureRoot, '../../..');
-    const suitePath = join(examplesRoot, 'suite.yaml');
+    const suiteRoot = join(fixtureRoot, '../..');
+    const suitePath = join(suiteRoot, 'suite.yaml');
     const loaded = loadSuiteManifest(suitePath);
     const workDir = mkdtempSync(join(tmpdir(), 'ael-fixture-self-test-'));
     const result = await runFixtureSelfTest({
@@ -517,6 +503,7 @@ export async function doctorCommand(
         join(options.out, 'doctor.json'),
         `${JSON.stringify(
           {
+            schemaVersion: 1,
             ready,
             model: assembled.suite.agent.model,
             adapter: assembled.suite.agent.adapter,
@@ -527,6 +514,12 @@ export async function doctorCommand(
             fairnessWarnings: assembled.fairnessWarnings,
             requestedCapabilities: requested,
             observedCapabilities: isolationDoctor.observedCapabilities,
+            unmetRequiredCapabilities: unmetRequiredCapabilities(
+              assembled.suite.isolation.require,
+              isolationDoctor.observedCapabilities,
+            ),
+            supported: isolationDoctor.supported,
+            messages: [...agentDoctor.messages, ...isolationDoctor.messages],
             agentMessages: agentDoctor.messages,
             isolationMessages: isolationDoctor.messages,
           },
@@ -816,82 +809,4 @@ export async function resumeCommand(
   }
 }
 
-export function reportCommand(
-  outputRoot: string,
-  suitePath: string,
-  context: CommandContext,
-  failOnVerdict = false,
-): number {
-  try {
-    const loaded = loadSuiteManifest(suitePath);
-    const suite = loaded.normalizedValue;
-    const gates = evaluateGates({
-      decisionPolicy: suite.decisionPolicy,
-      decisionPolicyMode: suite.decisionPolicy.mode,
-      statistics: {
-        independentFixtureCount: suite.fixtures.length,
-        trialCount: 0,
-        pairedSignTest: {
-          improvements: 0,
-          regressions: 0,
-          ties: 0,
-          pValueOneSided: null,
-          pValueTwoSided: null,
-        },
-        verifiedSuccessDelta: null,
-        controlVerifiedSuccessRate: null,
-        treatmentVerifiedSuccessRate: null,
-        controlMedianDurationMs: null,
-        treatmentMedianDurationMs: null,
-        controlP90DurationMs: null,
-        treatmentP90DurationMs: null,
-        controlP95DurationMs: null,
-        treatmentP95DurationMs: null,
-        infrastructureFailureRate: null,
-      },
-      completedPairs: 0,
-      evidenceRoot: outputRoot,
-    });
-    const verdict = deriveVerdict(gates);
-    const report = buildReportSource({
-      experimentId: suite.id,
-      suiteName: suite.name,
-      verdict,
-      gates,
-      statistics: {
-        independentFixtureCount: suite.fixtures.length,
-        trialCount: 0,
-        pairedSignTest: {
-          improvements: 0,
-          regressions: 0,
-          ties: 0,
-          pValueOneSided: null,
-          pValueTwoSided: null,
-        },
-        verifiedSuccessDelta: null,
-        controlVerifiedSuccessRate: null,
-        treatmentVerifiedSuccessRate: null,
-        controlMedianDurationMs: null,
-        treatmentMedianDurationMs: null,
-        controlP90DurationMs: null,
-        treatmentP90DurationMs: null,
-        controlP95DurationMs: null,
-        treatmentP95DurationMs: null,
-        infrastructureFailureRate: null,
-      },
-    });
-    mkdirSync(join(outputRoot, 'report'), { recursive: true });
-    writeFileSync(join(outputRoot, 'report', 'report.json'), serializeReportJson(report), 'utf8');
-    writeFileSync(join(outputRoot, 'report', 'report.md'), renderReportMarkdown(report), 'utf8');
-    writeFileSync(join(outputRoot, 'report', 'report.csv'), renderReportCsv(report), 'utf8');
-    writeFileSync(join(outputRoot, 'report', 'report.html'), renderReportHtml(report), 'utf8');
-    if (failOnVerdict && verdict !== 'PASSED') {
-      return EXIT_VERDICT_FAIL;
-    }
-    context.stdout(`${verdict}\n`);
-    return EXIT_OK;
-  } catch (error) {
-    context.stderr(error instanceof Error ? error.message : 'report failed');
-    return EXIT_RUNTIME;
-  }
-}
+export { reportCommand } from './report.js';

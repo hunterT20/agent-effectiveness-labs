@@ -220,245 +220,252 @@ export async function runTrial(input: TrialRunnerInput): Promise<TrialRunnerResu
 
   try {
     if (status === 'pending') {
-    await advance('start_preparing');
-  }
-
-  if (status === 'preparing') {
-    try {
-      const seeded = await seedWorkspace({
-        sourceRepositoryPath: input.sourceRepositoryPath,
-        commit: input.suite.repository.commit,
-        trialRoot: paths.trialRoot,
-      });
-      workspaceRoot = seeded.workspaceRoot;
-      baseFingerprint = seeded.baseFingerprint;
-      await mkdir(paths.isolatedHomeRoot, { recursive: true });
-      session = await input.isolation.prepare({
-        workspaceRoot,
-        trialId: input.trialId,
-        logDir: paths.logDir,
-      });
-      armMaterialization = await materializeArm({
-        workspaceRoot,
-        trialId: input.trialId,
-        arm: input.arm,
-        suiteRoot: input.suiteRoot,
-        overlayManifestPath: paths.armMaterializationPath,
-        isolation: input.isolation,
-        isolationSession: session,
-        isolatedHomeRoot: paths.isolatedHomeRoot,
-      });
-    } catch (error) {
-      return await failInfrastructure(`preparation failed: ${errorMessage(error)}`);
+      await advance('start_preparing');
     }
-    await advance('prepared');
-  } else {
-    try {
-      const saved = await readAtomicJson(join(paths.attemptDir, 'state.json'), TrialStateSchema);
-      if (saved.workspaceRoot !== undefined) {
-        workspaceRoot = saved.workspaceRoot;
-      }
-      if (saved.baseFingerprint !== undefined) {
-        baseFingerprint = saved.baseFingerprint;
-      }
-      if (saved.phaseIndex !== undefined) {
-        phaseIndex = saved.phaseIndex;
-      }
-      sessionChatId = saved.sessionChatId;
-      armMaterialization = saved.armMaterialization;
-      agentOutcomeStatus = saved.agentOutcomeStatus;
-    } catch {
-      // use defaults
-    }
-  }
 
-  if (status === 'running') {
-    try {
-      session ??= await input.isolation.prepare({
-        workspaceRoot,
-        trialId: input.trialId,
-        logDir: paths.logDir,
-      });
-      let agentFailed = false;
-      let timedOut = false;
-      let lastStdoutPath = join(paths.logDir, 'stdout.log');
-      await mkdir(paths.promptDir, { recursive: true });
-
-      for (; phaseIndex < input.fixture.phases.length; phaseIndex += 1) {
-        if (input.cancellationToken?.cancelled === true) {
-          await disposeSession();
-          await advance('cancelled');
-          return { status, gradeStatus: 'not_graded', gradeReport: null, failureReason: null };
-        }
-
-        const phase = input.fixture.phases[phaseIndex];
-        if (phase === undefined) {
-          break;
-        }
-
-        if (phase.session === 'resume' && input.adapter.capabilities?.resume !== true) {
-          return await failInfrastructure(
-            `phase ${phase.id} requires session resume but adapter lacks capabilities.resume`,
-          );
-        }
-
-        // Prompts live under the trial root, outside the agent workspace, so they never leak
-        // into the candidate snapshot. Adapters that join the prompt onto the workspace root still
-        // accept an absolute path.
-        const promptSource = join(input.fixtureRoot, phase.promptFile);
-        const promptTarget = join(paths.promptDir, `prompt-${phase.id}.md`);
-        await copyFile(promptSource, promptTarget);
-        const promptFile = promptTarget;
-
-        const invocation = await input.adapter.buildInvocation({
+    if (status === 'preparing') {
+      try {
+        const seeded = await seedWorkspace({
+          sourceRepositoryPath: input.sourceRepositoryPath,
+          commit: input.suite.repository.commit,
+          trialRoot: paths.trialRoot,
+        });
+        workspaceRoot = seeded.workspaceRoot;
+        baseFingerprint = seeded.baseFingerprint;
+        await mkdir(paths.isolatedHomeRoot, { recursive: true });
+        session = await input.isolation.prepare({
           workspaceRoot,
-          promptFile,
-          phaseId: phase.id,
-          sessionMode: phase.session,
           trialId: input.trialId,
+          logDir: paths.logDir,
+        });
+        armMaterialization = await materializeArm({
+          workspaceRoot,
+          trialId: input.trialId,
+          arm: input.arm,
+          suiteRoot: input.suiteRoot,
+          overlayManifestPath: paths.armMaterializationPath,
+          isolation: input.isolation,
+          isolationSession: session,
           isolatedHomeRoot: paths.isolatedHomeRoot,
-          timeoutMs: input.fixture.limits.timeoutMsPerPhase,
-          model: input.model ?? input.suite.agent.model,
-          environment: armMaterialization?.environment ?? {},
-          argvAdditions: armMaterialization?.argvAdditions ?? [],
-          pluginDirs: armMaterialization?.pluginDirs ?? [],
-          ...(phase.session === 'resume' && sessionChatId !== undefined
-            ? { resumeChatId: sessionChatId }
-            : {}),
         });
-
-        const processResult = await input.isolation.run(session, invocation);
-        const stdoutPath = processResult.stdoutPath ?? join(paths.logDir, 'stdout.log');
-        const stderrPath = processResult.stderrPath ?? join(paths.logDir, 'stderr.log');
-        lastStdoutPath = stdoutPath;
-        const outcome = await input.adapter.parseOutcome({ processResult, stdoutPath, stderrPath });
-        const telemetry = await input.adapter.collectTelemetry({
-          stdoutPath,
-          stderrPath,
-          processResult,
-        });
-        phaseTelemetry.push(telemetry);
-
-        if (outcome.sessionChatId !== undefined) {
-          sessionChatId = outcome.sessionChatId;
-        }
-
-        await writeAtomicJson(join(paths.attemptDir, `telemetry-phase-${phase.id}.json`), telemetry);
-
-        if (processResult.signal !== null || processResult.exitCode === null) {
-          timedOut = true;
-          break;
-        }
-        if (processResult.exitCode !== 0) {
-          agentFailed = true;
-          break;
-        }
+      } catch (error) {
+        return await failInfrastructure(`preparation failed: ${errorMessage(error)}`);
       }
-
-      await disposeSession();
-
-      const aggregated = aggregateTelemetryPhases(phaseTelemetry);
-      const estimatedCostUsd =
-        input.pricingSnapshot !== undefined && input.pricingSnapshot !== null
-          ? computeTelemetryCost(
-              aggregated,
-              input.model ?? input.suite.agent.model,
-              input.pricingSnapshot,
-            )
-          : unavailableCost('no pricing snapshot');
-      await writeAtomicJson(
-        join(paths.attemptDir, 'telemetry.json'),
-        buildTrialTelemetryRecord({
-          telemetry: aggregated,
-          estimatedCostUsd,
-          phaseCount: phaseTelemetry.length,
-          rawArtifactPath: lastStdoutPath,
-        }),
-      );
-
-      if (timedOut) {
-        agentOutcomeStatus = 'timed_out';
-        await advance('timed_out');
-      } else if (agentFailed) {
-        agentOutcomeStatus = 'agent_failed';
-        await advance('agent_failed');
-      } else {
-        await advance('agent_finished');
+      await advance('prepared');
+    } else {
+      try {
+        const saved = await readAtomicJson(join(paths.attemptDir, 'state.json'), TrialStateSchema);
+        if (saved.workspaceRoot !== undefined) {
+          workspaceRoot = saved.workspaceRoot;
+        }
+        if (saved.baseFingerprint !== undefined) {
+          baseFingerprint = saved.baseFingerprint;
+        }
+        if (saved.phaseIndex !== undefined) {
+          phaseIndex = saved.phaseIndex;
+        }
+        sessionChatId = saved.sessionChatId;
+        armMaterialization = saved.armMaterialization;
+        agentOutcomeStatus = saved.agentOutcomeStatus;
+      } catch {
+        // use defaults
       }
-    } catch (error) {
-      return await failInfrastructure(`agent phase failed: ${errorMessage(error)}`);
     }
-  }
 
-  let gradeReport: GradeReport | null = null;
+    if (status === 'running') {
+      try {
+        session ??= await input.isolation.prepare({
+          workspaceRoot,
+          trialId: input.trialId,
+          logDir: paths.logDir,
+        });
+        let agentFailed = false;
+        let timedOut = false;
+        let lastStdoutPath = join(paths.logDir, 'stdout.log');
+        await mkdir(paths.promptDir, { recursive: true });
 
-  const grade = async (snapshot: PublicCandidateSnapshot): Promise<GradeReport> => {
-    const report = await runHiddenGrader({
-      fixture: input.fixture,
-      fixtureRoot: input.fixtureRoot,
-      gradingWorkspaceRoot: paths.gradingWorkspaceRoot,
-      candidatePatchPath: snapshot.patchArtifact,
-      overlayIntegrity: snapshot.overlayIntegrity,
-      seedRepositoryPath: input.sourceRepositoryPath,
-      repositoryCommit: input.suite.repository.commit,
-      untrackedArchivePath: snapshot.untrackedArchiveArtifact,
-      ...(input.protectedBlobStore !== undefined
-        ? { protectedBlobStore: input.protectedBlobStore }
-        : {}),
-      protectedPatchRef: snapshot.protectedPatchRef,
-      protectedUntrackedRef: snapshot.protectedUntrackedRef,
-      scope: snapshot.scope,
-      candidateInvalidReason: snapshot.candidateInvalidReason,
-    });
-    await writeAtomicJson(join(paths.attemptDir, 'grade.json'), report);
-    await advance('grading_complete');
-    return report;
-  };
+        for (; phaseIndex < input.fixture.phases.length; phaseIndex += 1) {
+          if (input.cancellationToken?.cancelled === true) {
+            await disposeSession();
+            await advance('cancelled');
+            return { status, gradeStatus: 'not_graded', gradeReport: null, failureReason: null };
+          }
 
-  if (status === 'collecting' || status === 'agent_failed' || status === 'timed_out') {
-    try {
-      const snapshot = await captureCandidateSnapshot({
-        workspaceRoot,
-        baseFingerprint,
-        overlayManifestPath: paths.armMaterializationPath,
-        artifactDir: paths.artifactDir,
+          const phase = input.fixture.phases[phaseIndex];
+          if (phase === undefined) {
+            break;
+          }
+
+          if (phase.session === 'resume' && input.adapter.capabilities?.resume !== true) {
+            return await failInfrastructure(
+              `phase ${phase.id} requires session resume but adapter lacks capabilities.resume`,
+            );
+          }
+
+          // Prompts live under the trial root, outside the agent workspace, so they never leak
+          // into the candidate snapshot. Adapters that join the prompt onto the workspace root still
+          // accept an absolute path.
+          const promptSource = join(input.fixtureRoot, phase.promptFile);
+          const promptTarget = join(paths.promptDir, `prompt-${phase.id}.md`);
+          await copyFile(promptSource, promptTarget);
+          const promptFile = promptTarget;
+
+          const invocation = await input.adapter.buildInvocation({
+            workspaceRoot,
+            promptFile,
+            phaseId: phase.id,
+            sessionMode: phase.session,
+            trialId: input.trialId,
+            isolatedHomeRoot: paths.isolatedHomeRoot,
+            timeoutMs: input.fixture.limits.timeoutMsPerPhase,
+            model: input.model ?? input.suite.agent.model,
+            environment: armMaterialization?.environment ?? {},
+            argvAdditions: armMaterialization?.argvAdditions ?? [],
+            pluginDirs: armMaterialization?.pluginDirs ?? [],
+            ...(phase.session === 'resume' && sessionChatId !== undefined
+              ? { resumeChatId: sessionChatId }
+              : {}),
+          });
+
+          const processResult = await input.isolation.run(session, invocation);
+          const stdoutPath = processResult.stdoutPath ?? join(paths.logDir, 'stdout.log');
+          const stderrPath = processResult.stderrPath ?? join(paths.logDir, 'stderr.log');
+          lastStdoutPath = stdoutPath;
+          const outcome = await input.adapter.parseOutcome({
+            processResult,
+            stdoutPath,
+            stderrPath,
+          });
+          const telemetry = await input.adapter.collectTelemetry({
+            stdoutPath,
+            stderrPath,
+            processResult,
+          });
+          phaseTelemetry.push(telemetry);
+
+          if (outcome.sessionChatId !== undefined) {
+            sessionChatId = outcome.sessionChatId;
+          }
+
+          await writeAtomicJson(
+            join(paths.attemptDir, `telemetry-phase-${phase.id}.json`),
+            telemetry,
+          );
+
+          if (processResult.signal !== null || processResult.exitCode === null) {
+            timedOut = true;
+            break;
+          }
+          if (processResult.exitCode !== 0) {
+            agentFailed = true;
+            break;
+          }
+        }
+
+        await disposeSession();
+
+        const aggregated = aggregateTelemetryPhases(phaseTelemetry);
+        const estimatedCostUsd =
+          input.pricingSnapshot !== undefined && input.pricingSnapshot !== null
+            ? computeTelemetryCost(
+                aggregated,
+                input.model ?? input.suite.agent.model,
+                input.pricingSnapshot,
+              )
+            : unavailableCost('no pricing snapshot');
+        await writeAtomicJson(
+          join(paths.attemptDir, 'telemetry.json'),
+          buildTrialTelemetryRecord({
+            telemetry: aggregated,
+            estimatedCostUsd,
+            phaseCount: phaseTelemetry.length,
+            rawArtifactPath: lastStdoutPath,
+          }),
+        );
+
+        if (timedOut) {
+          agentOutcomeStatus = 'timed_out';
+          await advance('timed_out');
+        } else if (agentFailed) {
+          agentOutcomeStatus = 'agent_failed';
+          await advance('agent_failed');
+        } else {
+          await advance('agent_finished');
+        }
+      } catch (error) {
+        return await failInfrastructure(`agent phase failed: ${errorMessage(error)}`);
+      }
+    }
+
+    let gradeReport: GradeReport | null = null;
+
+    const grade = async (snapshot: PublicCandidateSnapshot): Promise<GradeReport> => {
+      const report = await runHiddenGrader({
+        fixture: input.fixture,
+        fixtureRoot: input.fixtureRoot,
+        gradingWorkspaceRoot: paths.gradingWorkspaceRoot,
+        candidatePatchPath: snapshot.patchArtifact,
+        overlayIntegrity: snapshot.overlayIntegrity,
+        seedRepositoryPath: input.sourceRepositoryPath,
+        repositoryCommit: input.suite.repository.commit,
+        untrackedArchivePath: snapshot.untrackedArchiveArtifact,
         ...(input.protectedBlobStore !== undefined
           ? { protectedBlobStore: input.protectedBlobStore }
           : {}),
-        scopePolicy: {
-          allowedPaths: input.fixture.candidate.allowedPaths,
-          forbiddenPaths: input.fixture.candidate.forbiddenPaths,
-          maxChangedFiles: input.fixture.limits.maxChangedFiles,
-        },
+        protectedPatchRef: snapshot.protectedPatchRef,
+        protectedUntrackedRef: snapshot.protectedUntrackedRef,
+        scope: snapshot.scope,
+        candidateInvalidReason: snapshot.candidateInvalidReason,
       });
-      await writeAtomicJson(join(paths.attemptDir, 'candidate-snapshot.json'), snapshot);
-      await advance('collection_complete');
-      gradeReport = await grade(snapshot);
-    } catch (error) {
-      return await failInfrastructure(`collection or grading failed: ${errorMessage(error)}`);
-    }
-  } else if (status === 'grading') {
-    try {
-      const snapshot = await readAtomicJson(
-        join(paths.attemptDir, 'candidate-snapshot.json'),
-        PublicCandidateSnapshotSchema,
-      );
-      gradeReport = await grade(snapshot);
-    } catch (error) {
-      return await failInfrastructure(`grading failed: ${errorMessage(error)}`);
-    }
-  }
+      await writeAtomicJson(join(paths.attemptDir, 'grade.json'), report);
+      await advance('grading_complete');
+      return report;
+    };
 
-  if (!isTerminalStatus(status) && status !== 'completed') {
-    return { status: reportedStatus(), gradeStatus: 'not_graded', gradeReport, failureReason };
-  }
+    if (status === 'collecting' || status === 'agent_failed' || status === 'timed_out') {
+      try {
+        const snapshot = await captureCandidateSnapshot({
+          workspaceRoot,
+          baseFingerprint,
+          overlayManifestPath: paths.armMaterializationPath,
+          artifactDir: paths.artifactDir,
+          ...(input.protectedBlobStore !== undefined
+            ? { protectedBlobStore: input.protectedBlobStore }
+            : {}),
+          scopePolicy: {
+            allowedPaths: input.fixture.candidate.allowedPaths,
+            forbiddenPaths: input.fixture.candidate.forbiddenPaths,
+            maxChangedFiles: input.fixture.limits.maxChangedFiles,
+          },
+        });
+        await writeAtomicJson(join(paths.attemptDir, 'candidate-snapshot.json'), snapshot);
+        await advance('collection_complete');
+        gradeReport = await grade(snapshot);
+      } catch (error) {
+        return await failInfrastructure(`collection or grading failed: ${errorMessage(error)}`);
+      }
+    } else if (status === 'grading') {
+      try {
+        const snapshot = await readAtomicJson(
+          join(paths.attemptDir, 'candidate-snapshot.json'),
+          PublicCandidateSnapshotSchema,
+        );
+        gradeReport = await grade(snapshot);
+      } catch (error) {
+        return await failInfrastructure(`grading failed: ${errorMessage(error)}`);
+      }
+    }
 
-  return {
-    status: reportedStatus(),
-    gradeStatus: gradeReport === null ? 'not_graded' : gradeReport.status,
-    gradeReport,
-    failureReason,
-  };
+    if (!isTerminalStatus(status) && status !== 'completed') {
+      return { status: reportedStatus(), gradeStatus: 'not_graded', gradeReport, failureReason };
+    }
+
+    return {
+      status: reportedStatus(),
+      gradeStatus: gradeReport === null ? 'not_graded' : gradeReport.status,
+      gradeReport,
+      failureReason,
+    };
   } catch (error) {
     return failInfrastructure(`trial failed: ${errorMessage(error)}`);
   }

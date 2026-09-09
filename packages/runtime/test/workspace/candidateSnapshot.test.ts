@@ -17,7 +17,9 @@ import { createTempSeedRepo, runGitIn } from '../helpers/tempSeedRepo.js';
 describe('parseGitNameStatus', () => {
   it('parses A/M/D/R status lines', () => {
     const parsed = parseGitNameStatus(
-      ['A\tadded.txt', 'M\tmodified.txt', 'D\tdeleted.txt', 'R100\told.txt\tnew.txt', ''].join('\n'),
+      ['A\tadded.txt', 'M\tmodified.txt', 'D\tdeleted.txt', 'R100\told.txt\tnew.txt', ''].join(
+        '\n',
+      ),
     );
     expect(parsed).toEqual([
       { path: 'added.txt', changeType: 'added' },
@@ -86,7 +88,11 @@ describe('candidate snapshot name-status and overlay integrity', () => {
     const seed = await createTempSeedRepo();
     const suiteRoot = mkdtempSync(join(tmpdir(), 'ael-overlay-suite-'));
     mkdirSync(join(suiteRoot, 'overlays', 'marker'), { recursive: true });
-    writeFileSync(join(suiteRoot, 'overlays', 'marker', 'overlay-marker.txt'), 'overlay-ok\n', 'utf8');
+    writeFileSync(
+      join(suiteRoot, 'overlays', 'marker', 'overlay-marker.txt'),
+      'overlay-ok\n',
+      'utf8',
+    );
 
     const workspace = mkdtempSync(join(tmpdir(), 'ael-overlay-ws-'));
     await cloneDetachedRepository({

@@ -114,4 +114,3 @@ export function pairedSignTest(outcomes: readonly PairedFixtureOutcome[]): Paire
     pValueTwoSided,
   };
 }
-

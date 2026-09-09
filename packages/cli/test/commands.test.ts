@@ -62,10 +62,127 @@ describe('cli commands', () => {
     expect(logs.join('')).toContain('trials');
   });
 
-  it('returns EXIT_CAPABILITY when a fixture needs resume and the adapter lacks it', () => {
-    const outputRoot = mkdtempSync(join(tmpdir(), 'ael-plan-resume-'));
+  it('plans the awh-vs-baseline suite with fake-agent resume support', () => {
+    const outputRoot = mkdtempSync(join(tmpdir(), 'ael-plan-awh-'));
     const ctx = capture();
     const code = planCommand(awhSuitePath, outputRoot, ctx, false);
+    expect(code).toBe(EXIT_OK);
+    expect(existsSync(join(outputRoot, 'trial-plan.json'))).toBe(true);
+  });
+
+  it('returns EXIT_CAPABILITY when a fixture needs resume and the adapter lacks it', () => {
+    const suiteRoot = mkdtempSync(join(tmpdir(), 'ael-plan-no-resume-'));
+    mkdirSync(join(suiteRoot, 'arms'), { recursive: true });
+    mkdirSync(join(suiteRoot, 'fixtures/resume-me/prompts'), { recursive: true });
+    mkdirSync(join(suiteRoot, 'fixtures/resume-me/grader'), { recursive: true });
+    mkdirSync(join(suiteRoot, 'fixtures/resume-me/reference'), { recursive: true });
+    mkdirSync(join(suiteRoot, 'seed'), { recursive: true });
+    writeFileSync(join(suiteRoot, 'seed', 'README.md'), 'seed\n', 'utf8');
+    writeFileSync(
+      join(suiteRoot, 'arms/baseline.yaml'),
+      'schemaVersion: 1\nid: baseline\nname: Baseline\nactions: []\n',
+      'utf8',
+    );
+    writeFileSync(join(suiteRoot, 'fixtures/resume-me/prompts/initial.md'), 'start\n', 'utf8');
+    writeFileSync(join(suiteRoot, 'fixtures/resume-me/prompts/recovery.md'), 'resume\n', 'utf8');
+    writeFileSync(
+      join(suiteRoot, 'fixtures/resume-me/grader/check.mjs'),
+      'process.exit(0);\n',
+      'utf8',
+    );
+    writeFileSync(join(suiteRoot, 'fixtures/resume-me/reference/solution.patch'), '', 'utf8');
+    writeFileSync(
+      join(suiteRoot, 'fixtures/resume-me/fixture.yaml'),
+      `schemaVersion: 1
+id: resume-me
+name: Resume required
+category: recovery
+outcomeMode: repository
+phases:
+  - id: initial
+    promptFile: ./prompts/initial.md
+    session: new
+  - id: recovery
+    promptFile: ./prompts/recovery.md
+    session: resume
+limits:
+  timeoutMsPerPhase: 1000
+  maxChangedFiles: 4
+candidate:
+  allowedPaths:
+    - src/**
+  forbiddenPaths:
+    - grader/**
+grading:
+  deterministic:
+    - id: check
+      command: node
+      args: [./grader/check.mjs]
+      required: true
+  blindedRubric:
+    enabled: false
+    rubricFile: null
+    minimumRaters: 0
+    minimumAgreement: null
+  llmJudge:
+    role: disabled
+reference:
+  solutionPatch: ./reference/solution.patch
+`,
+      'utf8',
+    );
+    writeFileSync(
+      join(suiteRoot, 'suite.yaml'),
+      `schemaVersion: 1
+id: no-resume-suite
+name: No resume adapter
+repository:
+  type: local-git
+  path: ./seed
+  commit: 0123456789abcdef0123456789abcdef01234567
+agent:
+  adapter: no-resume-agent
+  model: fake
+  reasoning: standard
+  permissionMode: workspace-write
+isolation:
+  provider: directory-only
+  require: {}
+  network: deny
+defaults:
+  repeats: 1
+  concurrency: 1
+  timeoutMs: 1000
+  randomSeed: no-resume
+  cachePolicy: cold-isolated
+primaryControlArm: baseline
+primaryTreatmentArm: baseline
+arms:
+  - ./arms/baseline.yaml
+fixtures:
+  - ./fixtures/resume-me/fixture.yaml
+decisionPolicy:
+  mode: exploratory
+  minimumCompletedPairs: 1
+  minimumIndependentFixtures: 1
+  maximumInfrastructureFailureRate: 1
+  verifiedSuccessDeltaMin: 0
+  pairedImprovementPValueMax: 1
+  multipleComparisonMethod: none
+  treatmentCriticalSafetyMax: 0
+  treatmentStaleEvidenceAcceptedMax: 1
+  treatmentRecoveryRateMin: 0
+  treatmentFalseBlockRateMax: 1
+  telemetryCoverageMin: 0
+  treatmentToControlCostPerSuccessMaxRatio: 1
+  treatmentToControlMedianDurationMaxRatio: 10
+  treatmentToControlMedianTokensMaxRatio: 10
+`,
+      'utf8',
+    );
+    const outputRoot = mkdtempSync(join(tmpdir(), 'ael-plan-resume-'));
+    const ctx = capture();
+    const code = planCommand(join(suiteRoot, 'suite.yaml'), outputRoot, ctx, false);
     expect(code).toBe(EXIT_CAPABILITY);
     expect(ctx.stderrText()).toContain('capabilities.resume');
     expect(existsSync(join(outputRoot, 'trial-plan.json'))).toBe(false);
@@ -151,7 +268,7 @@ describe('cli commands', () => {
     expect(ctx.stdoutText()).toContain('"completed": 1');
     expect(ctx.stderrText()).toBe('');
     const payload: unknown = JSON.parse(ctx.stdoutText());
-    expect(payload).toMatchObject({ plannedTrials: 6, attemptCount: 1 });
+    expect(payload).toMatchObject({ plannedTrials: 18, attemptCount: 1 });
   });
 
   it('status human text goes to stderr', () => {
