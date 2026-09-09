@@ -46,7 +46,7 @@
     "test": "pnpm --dir ../.. exec vitest run --project unit packages/core/test"
   },
   "dependencies": {
-    "json-canonicalize": "2.0.0",
+    "json-canonicalize": "3.0.0",
     "yaml": "^2.7.0",
     "zod": "^3.24.2",
     "zod-to-json-schema": "^3.24.5"
