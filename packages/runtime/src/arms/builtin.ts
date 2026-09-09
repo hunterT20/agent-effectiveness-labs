@@ -13,6 +13,7 @@ import type {
 } from '@ael/core';
 import { ArmMaterializationSchema, isInside } from '@ael/core';
 
+import { buildAgentEnvironment } from '../process/env.js';
 import { readAtomicJson, writeAtomicJson } from '../artifacts/atomicWrite.js';
 import { runCommonPreparation } from '../workspace/commonPreparation.js';
 import {
@@ -57,14 +58,16 @@ function toPosix(path: string): string {
   return path.split('\\').join('/');
 }
 
-function currentEnvironment(): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value !== undefined) {
-      env[key] = value;
-    }
-  }
-  return env;
+function setupCommandEnvironment(
+  baseEnvironment: Readonly<Record<string, string>> | undefined,
+  armEnvironment: Readonly<Record<string, string>>,
+): { readonly env: Record<string, string>; readonly secretValues: readonly string[] } {
+  const built = buildAgentEnvironment({
+    base: baseEnvironment ?? process.env,
+    extra: armEnvironment,
+    passthroughPrefixes: ['AEL_'],
+  });
+  return { env: built.env, secretValues: built.secretValues };
 }
 
 async function listFilesRecursive(root: string, current = root): Promise<string[]> {
@@ -178,14 +181,16 @@ async function runSandboxedSetup(
       logDir: setupLogDir,
     }));
   const timeoutMs = action.timeoutMs ?? 60_000;
+  const { env, secretValues } = setupCommandEnvironment(input.baseEnvironment, state.environment);
   let result: Awaited<ReturnType<IsolationProvider['run']>>;
   try {
     result = await input.isolation.run(session, {
       command: action.command,
       args: action.args,
       cwd,
-      env: { ...(input.baseEnvironment ?? currentEnvironment()), ...state.environment },
+      env,
       timeoutMs,
+      ...(secretValues.length > 0 ? { redactLiterals: [...secretValues] } : {}),
     });
   } finally {
     if (ownSession) {

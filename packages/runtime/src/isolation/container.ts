@@ -79,30 +79,54 @@ interface DockerRunResult {
   readonly stderr: string;
 }
 
-async function runDocker(args: readonly string[], timeoutMs = 120_000): Promise<DockerRunResult> {
+interface DockerRunOptions {
+  readonly timeoutMs?: number;
+  readonly abortSignal?: AbortSignal;
+}
+
+async function runDocker(
+  args: readonly string[],
+  options: DockerRunOptions | number = 120_000,
+): Promise<DockerRunResult> {
+  const timeoutMs = typeof options === 'number' ? options : (options.timeoutMs ?? 120_000);
+  const abortSignal = typeof options === 'number' ? undefined : options.abortSignal;
   return new Promise((resolveRun) => {
     const stdoutChunks: Buffer[] = [];
     const stderrChunks: Buffer[] = [];
     let timedOut = false;
+    let aborted = false;
     const child = spawn('docker', [...args], { shell: false, stdio: ['ignore', 'pipe', 'pipe'] });
     const timer = setTimeout(() => {
       timedOut = true;
       child.kill('SIGKILL');
     }, timeoutMs);
+    const onAbort = (): void => {
+      aborted = true;
+      child.kill('SIGKILL');
+    };
+    if (abortSignal !== undefined) {
+      if (abortSignal.aborted) {
+        onAbort();
+      } else {
+        abortSignal.addEventListener('abort', onAbort, { once: true });
+      }
+    }
     child.stdout.on('data', (chunk: Buffer) => stdoutChunks.push(chunk));
     child.stderr.on('data', (chunk: Buffer) => stderrChunks.push(chunk));
     child.on('close', (code, signal) => {
       clearTimeout(timer);
+      abortSignal?.removeEventListener('abort', onAbort);
       resolveRun({
-        exitCode: timedOut ? null : code,
-        signal: timedOut ? 'SIGKILL' : signal,
-        timedOut,
+        exitCode: timedOut || aborted ? null : code,
+        signal: timedOut || aborted ? 'SIGKILL' : signal,
+        timedOut: timedOut || aborted,
         stdout: Buffer.concat(stdoutChunks).toString('utf8'),
         stderr: Buffer.concat(stderrChunks).toString('utf8'),
       });
     });
     child.on('error', () => {
       clearTimeout(timer);
+      abortSignal?.removeEventListener('abort', onAbort);
       resolveRun({
         exitCode: 1,
         signal: null,
@@ -407,7 +431,10 @@ export class ContainerIsolationProvider implements IsolationProvider {
     const dockerArgs = buildDockerRunArgs(containerSession, this.options, invocation);
     dockerArgs.push(invocation.command, ...invocation.args);
 
-    const result = await runDocker(dockerArgs, invocation.timeoutMs);
+    const result = await runDocker(dockerArgs, {
+      timeoutMs: invocation.timeoutMs,
+      ...(invocation.abortSignal !== undefined ? { abortSignal: invocation.abortSignal } : {}),
+    });
     if (result.timedOut) {
       // Killing the `docker run` client does not stop the container; kill it by name.
       await runDocker(['kill', containerSession.containerName], 15_000);

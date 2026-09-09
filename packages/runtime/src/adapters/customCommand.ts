@@ -13,6 +13,7 @@ import type {
   ProcessInvocation,
 } from '@ael/core';
 
+import { buildAgentEnvironment } from '../process/env.js';
 import { buildIsolatedHomeEnv, ensureIsolatedHome } from './cursorSupport.js';
 
 export interface CustomCommandAdapterOptions {
@@ -65,24 +66,22 @@ export function createCustomCommandAdapter(
       const promptPath = isAbsolute(input.promptFile)
         ? input.promptFile
         : join(input.workspaceRoot, input.promptFile);
-      const env: Record<string, string> = {};
-      for (const [key, value] of Object.entries(process.env)) {
-        if (value !== undefined) {
-          env[key] = value;
-        }
-      }
+      const isolatedExtras: Record<string, string> = {};
       if (input.isolatedHomeRoot !== undefined) {
         await ensureIsolatedHome(input.isolatedHomeRoot);
-        Object.assign(env, buildIsolatedHomeEnv(input.isolatedHomeRoot));
-        env.AEL_ISOLATED_HOME_ROOT = input.isolatedHomeRoot;
+        Object.assign(isolatedExtras, buildIsolatedHomeEnv(input.isolatedHomeRoot));
+        isolatedExtras.AEL_ISOLATED_HOME_ROOT = input.isolatedHomeRoot;
       }
-      // Arm-materialized variables win over inherited ones but never over harness markers below.
-      Object.assign(env, input.environment ?? {});
-      env.AEL_PHASE_ID = input.phaseId;
-      env.AEL_SESSION_MODE = input.sessionMode;
-      if (input.trialId !== undefined) {
-        env.AEL_TRIAL_ID = input.trialId;
-      }
+      const { env, secretValues } = buildAgentEnvironment({
+        extra: {
+          ...isolatedExtras,
+          ...(input.environment ?? {}),
+          AEL_PHASE_ID: input.phaseId,
+          AEL_SESSION_MODE: input.sessionMode,
+          ...(input.trialId !== undefined ? { AEL_TRIAL_ID: input.trialId } : {}),
+        },
+        passthroughPrefixes: ['AEL_'],
+      });
       const args = [
         ...(options.extraArgs ?? []),
         ...(input.argvAdditions ?? []),
@@ -107,6 +106,7 @@ export function createCustomCommandAdapter(
         cwd: input.workspaceRoot,
         env,
         timeoutMs: input.timeoutMs ?? options.timeoutMs,
+        ...(secretValues.length > 0 ? { redactLiterals: secretValues } : {}),
       };
     },
     parseOutcome(input: AgentOutcomeInput): Promise<AgentOutcome> {

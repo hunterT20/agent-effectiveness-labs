@@ -58,7 +58,10 @@ export class DirectoryOnlyIsolationProvider implements IsolationProvider {
     const supervisor = new ProcessSupervisor(
       directorySession.logDir !== undefined ? { logDir: directorySession.logDir } : {},
     );
-    const result = await supervisor.run(input);
+    const result = await supervisor.run(input, {
+      ...(input.abortSignal !== undefined ? { signal: input.abortSignal } : {}),
+      ...(input.redactLiterals !== undefined ? { redactLiterals: input.redactLiterals } : {}),
+    });
     return {
       exitCode: result.exitCode,
       signal: result.signal,

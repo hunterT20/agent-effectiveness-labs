@@ -143,9 +143,12 @@ export function createCursorAdapter(options: CursorAdapterOptions): AgentAdapter
         throw new Error(`prompt file ${promptPath} is empty`);
       }
 
-      const env = buildCursorChildEnv(isolatedHomeRoot);
-      env.AEL_PHASE_ID = input.phaseId;
-      env.AEL_SESSION_MODE = input.sessionMode;
+      const { env, secretValues } = buildCursorChildEnv(isolatedHomeRoot, process.env, {
+        ...(input.environment ?? {}),
+        AEL_PHASE_ID: input.phaseId,
+        AEL_SESSION_MODE: input.sessionMode,
+        ...(input.trialId !== undefined ? { AEL_TRIAL_ID: input.trialId } : {}),
+      });
 
       // Every flag below is cross-checked against `cursor-agent --help` (2026.09.02):
       // -p/--print, --output-format <format>, --trust, --sandbox <mode>, --workspace <path>,
@@ -185,6 +188,7 @@ export function createCursorAdapter(options: CursorAdapterOptions): AgentAdapter
         env,
         timeoutMs: input.timeoutMs ?? options.timeoutMs,
         redactedArgv: redactCursorArgv(command, args),
+        ...(secretValues.length > 0 ? { redactLiterals: secretValues } : {}),
       };
     },
     async parseOutcome(input: AgentOutcomeInput): Promise<AgentOutcome> {

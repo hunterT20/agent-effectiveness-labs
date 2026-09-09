@@ -67,6 +67,17 @@ describe('ConcurrencyLimiter', () => {
   });
 });
 
+describe('createCancellationToken', () => {
+  it('aborts its AbortSignal when cancel() is called', () => {
+    const token = createCancellationToken();
+    expect(token.cancelled).toBe(false);
+    expect(token.signal.aborted).toBe(false);
+    token.cancel();
+    expect(token.cancelled).toBe(true);
+    expect(token.signal.aborted).toBe(true);
+  });
+});
+
 describe('installSigintHandler', () => {
   it('cancels on the first interrupt and force-exits 130 after cleanup on the second', async () => {
     const token = createCancellationToken();

@@ -36,6 +36,7 @@ import {
   type PublicCandidateSnapshot,
 } from '../workspace/candidateSnapshot.js';
 import { seedWorkspace } from '../workspace/seedWorkspace.js';
+import type { CancellationToken } from './concurrency.js';
 import { isTerminalStatus, transitionTrialStatus } from './trialStateMachine.js';
 
 const TrialStateSchema = z
@@ -72,7 +73,7 @@ export interface TrialRunnerInput {
   readonly resumeFromStatus?: TrialStatus;
   readonly model?: string;
   readonly pricingSnapshot?: PricingSnapshot | null;
-  readonly cancellationToken?: { readonly cancelled: boolean };
+  readonly cancellationToken?: CancellationToken;
   /** When present, candidate patch and untracked archive are persisted only as protected blobs. */
   readonly protectedBlobStore?: ProtectedBlobStore;
 }
@@ -327,7 +328,12 @@ export async function runTrial(input: TrialRunnerInput): Promise<TrialRunnerResu
               : {}),
           });
 
-          const processResult = await input.isolation.run(session, invocation);
+          const processResult = await input.isolation.run(session, {
+            ...invocation,
+            ...(input.cancellationToken !== undefined
+              ? { abortSignal: input.cancellationToken.signal }
+              : {}),
+          });
           const stdoutPath = processResult.stdoutPath ?? join(paths.logDir, 'stdout.log');
           const stderrPath = processResult.stderrPath ?? join(paths.logDir, 'stderr.log');
           lastStdoutPath = stdoutPath;

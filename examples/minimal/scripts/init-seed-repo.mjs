@@ -70,6 +70,18 @@ function runGit(args, extraConfig = GIT_CONFIG) {
   return result.stdout.trim();
 }
 
+/** Normalize text files to LF so Windows checkouts produce the same commit hash as macOS/Linux. */
+function normalizeFileContents(relativePath, contents) {
+  if (relativePath.endsWith('.png') || relativePath.endsWith('.jpg') || relativePath.endsWith('.jpeg')) {
+    return contents;
+  }
+  const text = contents.toString('utf8');
+  if (text.includes('\0')) {
+    return contents;
+  }
+  return Buffer.from(text.replace(/\r\n/g, '\n'), 'utf8');
+}
+
 function collectWorkingTree() {
   /** @type {Record<string, Buffer>} */
   const files = {};
@@ -82,7 +94,8 @@ function collectWorkingTree() {
       if (statSync(fullPath).isDirectory()) {
         visit(fullPath);
       } else {
-        files[relative(seedRepo, fullPath)] = readFileSync(fullPath);
+        const relativePath = relative(seedRepo, fullPath);
+        files[relativePath] = normalizeFileContents(relativePath, readFileSync(fullPath));
       }
     }
   };
@@ -100,7 +113,7 @@ function writeWorkingTree(files) {
   for (const [relativePath, contents] of Object.entries(files)) {
     const fullPath = join(seedRepo, relativePath);
     mkdirSync(dirname(fullPath), { recursive: true });
-    writeFileSync(fullPath, contents);
+    writeFileSync(fullPath, normalizeFileContents(relativePath, contents));
   }
 }
 

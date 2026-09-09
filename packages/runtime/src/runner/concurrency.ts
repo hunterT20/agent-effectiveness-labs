@@ -52,17 +52,27 @@ export class ConcurrencyLimiter {
 
 export interface CancellationToken {
   readonly cancelled: boolean;
+  /** Aborts when {@link cancel} is called; pass to process supervisors via {@link ProcessInvocation}. */
+  readonly signal: AbortSignal;
   cancel(): void;
 }
 
 export function createCancellationToken(): CancellationToken {
+  const controller = new AbortController();
   const state = { cancelled: false };
   return {
     get cancelled() {
       return state.cancelled;
     },
+    get signal() {
+      return controller.signal;
+    },
     cancel() {
+      if (state.cancelled) {
+        return;
+      }
       state.cancelled = true;
+      controller.abort();
     },
   };
 }

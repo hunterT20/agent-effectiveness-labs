@@ -45,14 +45,13 @@ export default defineConfig({
       exclude: ['**/*.d.ts', '**/index.ts'],
       thresholds: {
         // Roadmap target (M4.6) is 85% lines/statements/functions and 70% branches for
-        // core + runtime. Measured on 2026-09-04 (all 42 test files, sources aliased):
-        //   lines 78.44% | statements 78.44% | functions 84.16% | branches 69.26%
-        // The values below are those numbers rounded down so the gate is honest today.
-        // TODO(release-integration): raise to 85/85/85/70 once the parallel test fix wave lands.
-        lines: 78,
-        functions: 84,
-        statements: 78,
-        branches: 69,
+        // core + runtime. Measured on 2026-09-10 (unit + integration, sources aliased):
+        //   lines 87.09% | statements 87.09% | functions 91.66% | branches 82.24%
+        // Values below are rounded down so the gate stays honest.
+        lines: 85,
+        functions: 85,
+        statements: 85,
+        branches: 70,
       },
     },
     projects: [

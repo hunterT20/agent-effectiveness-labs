@@ -10,9 +10,9 @@
  */
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const seedRepo = join(dirname(fileURLToPath(import.meta.url)), '..', 'seed-repo');
@@ -104,9 +104,40 @@ function normalizeIndexModes() {
   }
 }
 
+function normalizeFileContents(relativePath, contents) {
+  if (relativePath.endsWith('.png') || relativePath.endsWith('.jpg') || relativePath.endsWith('.jpeg')) {
+    return contents;
+  }
+  const text = contents.toString('utf8');
+  if (text.includes('\0')) {
+    return contents;
+  }
+  return Buffer.from(text.replace(/\r\n/g, '\n'), 'utf8');
+}
+
+function normalizeWorkingTreeLineEndings() {
+  const visit = (current) => {
+    for (const name of readdirSync(current)) {
+      if (name === '.git') {
+        continue;
+      }
+      const fullPath = join(current, name);
+      if (statSync(fullPath).isDirectory()) {
+        visit(fullPath);
+        continue;
+      }
+      const relativePath = relative(seedRepo, fullPath);
+      const normalized = normalizeFileContents(relativePath, readFileSync(fullPath));
+      writeFileSync(fullPath, normalized);
+    }
+  };
+  visit(seedRepo);
+}
+
 function buildRepository() {
   rmSync(join(seedRepo, '.git'), { recursive: true, force: true });
   runGit(['init', '--quiet']);
+  normalizeWorkingTreeLineEndings();
   runGit(['add', '--all']);
   normalizeIndexModes();
   runGit(['commit', '--quiet', '--no-verify', '--message', 'awh seed']);

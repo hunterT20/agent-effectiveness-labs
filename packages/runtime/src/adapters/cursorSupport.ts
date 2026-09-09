@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { buildAgentEnvironment } from '../process/env.js';
 import { redactSecrets } from '../process/redaction.js';
 
 export interface CursorVersionInfo {
@@ -126,16 +127,23 @@ export const CURSOR_ENV_ALLOWLIST = [
 export function buildCursorChildEnv(
   isolatedHomeRoot: string,
   hostEnv: Readonly<Record<string, string | undefined>> = process.env,
-): Record<string, string> {
-  const env: Record<string, string> = {};
+  extra: Readonly<Record<string, string>> = {},
+): { readonly env: Record<string, string>; readonly secretValues: readonly string[] } {
+  const base: NodeJS.ProcessEnv = {};
   for (const key of CURSOR_ENV_ALLOWLIST) {
     const value = hostEnv[key];
     if (value !== undefined && value.length > 0) {
-      env[key] = value;
+      base[key] = value;
     }
   }
-  Object.assign(env, buildIsolatedHomeEnv(isolatedHomeRoot));
-  return env;
+  const built = buildAgentEnvironment({
+    base,
+    allowlist: [...CURSOR_ENV_ALLOWLIST],
+    extra: { ...buildIsolatedHomeEnv(isolatedHomeRoot), ...extra },
+    passthroughPrefixes: ['AEL_'],
+    secretKeys: ['CURSOR_API_KEY'],
+  });
+  return { env: built.env, secretValues: built.secretValues };
 }
 
 /**
@@ -370,7 +378,7 @@ async function runLiveProbe(input: CursorSandboxProbeInput): Promise<CursorSandb
           cwd: layout.workspaceRoot,
           shell: false,
           stdio: ['ignore', 'pipe', 'pipe'],
-          env: buildCursorChildEnv(layout.isolatedHomeRoot),
+          env: buildCursorChildEnv(layout.isolatedHomeRoot).env,
         });
         const stdoutChunks: Buffer[] = [];
         const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs);

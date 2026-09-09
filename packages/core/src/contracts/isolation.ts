@@ -57,6 +57,10 @@ export interface ProcessInvocation {
    * than the adapter's redaction budget.
    */
   readonly redactedArgv?: readonly string[];
+  /** When aborted, isolation providers terminate the child process tree (Ctrl+C wiring). */
+  readonly abortSignal?: AbortSignal;
+  /** Literal secret values redacted from captured stdout/stderr for this invocation. */
+  readonly redactLiterals?: readonly string[];
 }
 
 export interface IsolationProvider {

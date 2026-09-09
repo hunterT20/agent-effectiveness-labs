@@ -128,7 +128,10 @@ export class AgentCliSandboxIsolationProvider implements IsolationProvider {
     const supervisor = new ProcessSupervisor(
       sandboxSession.logDir !== undefined ? { logDir: sandboxSession.logDir } : {},
     );
-    const result = await supervisor.run(input);
+    const result = await supervisor.run(input, {
+      ...(input.abortSignal !== undefined ? { signal: input.abortSignal } : {}),
+      ...(input.redactLiterals !== undefined ? { redactLiterals: input.redactLiterals } : {}),
+    });
     return {
       exitCode: result.exitCode,
       signal: result.signal,

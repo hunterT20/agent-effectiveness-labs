@@ -6,6 +6,7 @@ import type { FixtureDocument, GradeCheckResult, GradeReport } from '@ael/core';
 import { isInside } from '@ael/core';
 
 import type { ProtectedBlobStore } from '../artifacts/encryption.js';
+import { buildAgentEnvironment } from '../process/env.js';
 import { ProcessSupervisor } from '../process/supervisor.js';
 import type { ProtectedBlobRef } from '../workspace/candidateSnapshot.js';
 import {
@@ -114,14 +115,12 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function environmentForGrader(): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value !== undefined) {
-      env[key] = value;
-    }
-  }
-  return env;
+function environmentForGrader(): {
+  readonly env: Record<string, string>;
+  readonly secretValues: readonly string[];
+} {
+  const built = buildAgentEnvironment({ passthroughPrefixes: ['AEL_'] });
+  return { env: built.env, secretValues: built.secretValues };
 }
 
 export function parseGraderResultLine(stdout: string): GraderResultLine | null | 'malformed' {
@@ -194,8 +193,10 @@ async function runOneGrader(
   input: RunHiddenGraderInput,
   grader: FixtureDocument['grading']['deterministic'][number],
 ): Promise<GraderOutcome> {
+  const graderEnv = environmentForGrader();
   const supervisor = new ProcessSupervisor({
     logDir: join(dirname(input.gradingWorkspaceRoot), 'grader-logs', grader.id),
+    redactLiterals: [...graderEnv.secretValues],
   });
   const args = grader.args.map((arg) => arg.replace('./grader/', 'grader/'));
   for (const arg of args) {
@@ -221,7 +222,7 @@ async function runOneGrader(
       command: grader.command,
       args,
       cwd: input.gradingWorkspaceRoot,
-      env: environmentForGrader(),
+      env: graderEnv.env,
       timeoutMs: input.fixture.limits.timeoutMsPerPhase,
     });
   } catch (error) {
