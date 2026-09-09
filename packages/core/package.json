@@ -1,6 +1,6 @@
 {
   "name": "@ael/core",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Agent Effectiveness Labs core: suite/fixture/arm contracts, Zod schemas, fingerprints, deterministic scheduler, statistics and decision gates",
   "keywords": [
     "ael",

@@ -1,6 +1,6 @@
 {
   "name": "@ael/runtime",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Agent Effectiveness Labs runtime: isolation providers, agent adapters, seed workspaces, trial runner, hidden grading, telemetry and encrypted artifacts",
   "keywords": [
     "ael",

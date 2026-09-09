@@ -1,6 +1,6 @@
 {
   "name": "@ael/cli",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Agent Effectiveness Labs CLI (`ael`): plan, run, resume and report paired coding-agent experiments with hidden grading and fail-closed verdicts",
   "keywords": [
     "ael",

@@ -1,6 +1,6 @@
 {
   "name": "@ael/reporter",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Agent Effectiveness Labs reporter: deterministic JSON, Markdown, CSV (formula-injection safe) and self-contained HTML views of experiment evidence",
   "keywords": [
     "ael",
