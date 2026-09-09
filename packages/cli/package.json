@@ -52,7 +52,7 @@
     "@ael/core": "workspace:*",
     "@ael/reporter": "workspace:*",
     "@ael/runtime": "workspace:*",
-    "commander": "^13.1.0",
+    "commander": "^15.0.0",
     "yaml": "^2.7.0"
   }
 }
