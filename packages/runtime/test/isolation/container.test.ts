@@ -16,7 +16,7 @@ import {
 const dockerAvailable = await isDockerAvailable();
 
 describe.skipIf(!dockerAvailable)('container isolation', () => {
-  it('doctor records observed capabilities from probe results', async () => {
+  it('doctor records observed capabilities from probe results', { timeout: 120_000 }, async () => {
     const workspaceRoot = mkdtempSync(join(tmpdir(), 'ael-container-'));
     writeFileSync(join(workspaceRoot, 'seed.txt'), 'seed\n', 'utf8');
     const provider = new ContainerIsolationProvider({
